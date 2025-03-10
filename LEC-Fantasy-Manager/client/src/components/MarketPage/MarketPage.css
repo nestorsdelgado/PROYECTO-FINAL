@@ -1,0 +1,53 @@
+.market-container {
+    padding: 20px;
+    color: white;
+    overflow-x: hidden;
+    min-height: 91vh;
+}
+
+.market-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.market-filter-item {
+    flex: 1;
+    min-width: 200px;
+}
+
+.market-team-info {
+    background-color: rgba(15, 69, 122, 0.8);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid #1976d2;
+}
+
+/* Estilos para inputs con tema oscuro */
+.MuiOutlinedInput-root {
+    color: white !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.MuiInputLabel-root {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.MuiSelect-icon {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .market-filters {
+        flex-direction: column;
+    }
+}

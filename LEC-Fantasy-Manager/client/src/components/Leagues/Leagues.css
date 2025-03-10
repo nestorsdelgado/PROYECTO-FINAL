@@ -1,0 +1,12 @@
+.columna-liga {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+.ligas-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+}

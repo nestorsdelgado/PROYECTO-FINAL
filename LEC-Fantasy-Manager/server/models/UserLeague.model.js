@@ -13,7 +13,7 @@ const userLeagueSchema = new mongoose.Schema({
     },
     money: {
         type: Number,
-        default: 75, // 75 millones al unirse
+        default: 75, // 75 million euros initially
         min: 0
     },
     joinedAt: {
@@ -22,7 +22,8 @@ const userLeagueSchema = new mongoose.Schema({
     }
 });
 
-// Índice compuesto para asegurar que solo haya una entrada por usuario y liga
+// Composite index to ensure only one entry per user and league
 userLeagueSchema.index({ userId: 1, leagueId: 1 }, { unique: true });
 
-module.exports = mongoose.model('UserLeague', userLeagueSchema);
+const UserLeague = mongoose.model('UserLeague', userLeagueSchema);
+module.exports = UserLeague;

@@ -1,10 +1,10 @@
-// routes/my-leagues.routes.js
 const express = require('express');
 const router = express.Router();
 const MyLeagues = require('../models/myLeagues.model');
+const UserLeague = require('../models/UserLeague.model');
 const auth = require('../middleware/auth');
 
-// Get all leagues for the logged-in user (your existing route)
+// Get all leagues for the logged-in user
 router.get('/my-leagues', auth, async (req, res) => {
     try {
         const leagues = await MyLeagues.find({
@@ -18,7 +18,7 @@ router.get('/my-leagues', auth, async (req, res) => {
     }
 });
 
-// Create a new league - add this to your existing routes
+// Create a new league
 router.post('/create', auth, async (req, res) => {
     try {
         const { Nombre } = req.body;
@@ -33,6 +33,15 @@ router.post('/create', auth, async (req, res) => {
         });
 
         await newLeague.save();
+
+        // Initialize user's money for this league
+        const userLeague = new UserLeague({
+            userId: req.user.id,
+            leagueId: newLeague._id,
+            money: 75 // 75M€ initial funds
+        });
+
+        await userLeague.save();
 
         res.status(201).json({
             message: 'League created successfully',
@@ -49,7 +58,7 @@ router.post('/create', auth, async (req, res) => {
     }
 });
 
-// Join a league using a code - add this to your existing routes
+// Join a league using a code
 router.post('/join', auth, async (req, res) => {
     try {
         const { code } = req.body;
@@ -72,15 +81,15 @@ router.post('/join', auth, async (req, res) => {
             return res.status(400).json({ message: 'You are already a member of this league' });
         }
 
-        // Añadir usuario a participantes
+        // Add user to participants
         league.participants.push({ user: req.user.id });
         await league.save();
 
-        // Inicializar dinero del usuario para esta liga
+        // Initialize user's money for this league
         const userLeague = new UserLeague({
             userId: req.user.id,
             leagueId: league._id,
-            money: 75 // 75 millones iniciales
+            money: 75 // 75M€ initial funds
         });
 
         await userLeague.save();
@@ -100,6 +109,7 @@ router.post('/join', auth, async (req, res) => {
     }
 });
 
+// Leave a league
 router.post('/leave/:leagueId', auth, async (req, res) => {
     try {
         const { leagueId } = req.params;
@@ -120,7 +130,7 @@ router.post('/leave/:leagueId', auth, async (req, res) => {
             return res.status(400).json({ message: 'You are not a member of this league' });
         }
 
-        // Check if user is the creator - optional: you may want to prevent creators from leaving
+        // Check if user is the creator - prevent creators from leaving
         if (league.createdBy.toString() === req.user.id) {
             return res.status(400).json({
                 message: 'As the creator, you cannot leave this league. You can only delete it.'
@@ -130,6 +140,19 @@ router.post('/leave/:leagueId', auth, async (req, res) => {
         // Remove user from participants
         league.participants.splice(userIndex, 1);
         await league.save();
+
+        // Remove user's money record for this league
+        await UserLeague.deleteOne({
+            userId: req.user.id,
+            leagueId
+        });
+
+        // Remove user's players for this league
+        // This would need to be added after we create the UserPlayer model
+        // await UserPlayer.deleteMany({
+        //     userId: req.user.id,
+        //     leagueId
+        // });
 
         res.status(200).json({ message: 'Successfully left the league' });
     } catch (error) {

@@ -1,7 +1,7 @@
 import api from "./axios";
 
 class PlayerService {
-    // Obtener todos los jugadores
+    // Get all players
     async getAllPlayers() {
         try {
             const response = await api.get("/api/players");
@@ -12,7 +12,7 @@ class PlayerService {
         }
     }
 
-    // Obtener jugadores por equipo
+    // Get players by team
     async getPlayersByTeam(teamId) {
         try {
             const response = await api.get(`/api/players/team/${teamId}`);
@@ -23,7 +23,7 @@ class PlayerService {
         }
     }
 
-    // Obtener jugadores por posición
+    // Get players by position
     async getPlayersByPosition(position) {
         try {
             const response = await api.get(`/api/players/position/${position}`);
@@ -34,7 +34,7 @@ class PlayerService {
         }
     }
 
-    // Comprar un jugador
+    // Buy a player
     async buyPlayer(playerId, leagueId) {
         try {
             const response = await api.post("/api/players/buy", {
@@ -48,7 +48,7 @@ class PlayerService {
         }
     }
 
-    // Obtener jugadores del usuario en una liga específica
+    // Get user's players in a specific league
     async getUserPlayers(leagueId) {
         try {
             const response = await api.get(`/api/players/user/${leagueId}`);
@@ -59,11 +59,11 @@ class PlayerService {
         }
     }
 
-    // Obtener equipos para filtrado
+    // Get teams for filtering
     async getTeams() {
         try {
             const response = await api.get("/api/teams");
-            // Transformar la respuesta para adaptarla al formato que espera la UI
+            // Transform response to format expected by UI
             const formattedTeams = response.data.map(team => ({
                 id: team.code,
                 name: team.name
@@ -75,9 +75,9 @@ class PlayerService {
         }
     }
 
-    // Nuevas funciones para la gestión del equipo
+    // New functions for team management
 
-    // Obtener datos financieros del usuario en una liga
+    // Get user's financial data in a league
     async getUserLeagueData(leagueId) {
         try {
             const response = await api.get(`/api/user-league/${leagueId}`);
@@ -88,7 +88,7 @@ class PlayerService {
         }
     }
 
-    // Establecer jugador como titular
+    // Set player as starter
     async setPlayerAsStarter(playerId, leagueId, position, matchday = 1) {
         try {
             const response = await api.post("/api/players/lineup", {
@@ -104,7 +104,7 @@ class PlayerService {
         }
     }
 
-    // Obtener alineación actual
+    // Get current lineup
     async getCurrentLineup(leagueId, matchday = 1) {
         try {
             const response = await api.get(`/api/players/lineup/${leagueId}/${matchday}`);
@@ -115,7 +115,7 @@ class PlayerService {
         }
     }
 
-    // Vender jugador al mercado
+    // Sell player to market
     async sellPlayerToMarket(playerId, leagueId) {
         try {
             const response = await api.post("/api/players/sell/market", {
@@ -129,7 +129,7 @@ class PlayerService {
         }
     }
 
-    // Crear oferta para otro usuario
+    // Create offer to another user
     async createPlayerOffer(playerId, leagueId, targetUserId, price) {
         try {
             const response = await api.post("/api/players/sell/offer", {
@@ -145,7 +145,7 @@ class PlayerService {
         }
     }
 
-    // Obtener ofertas pendientes
+    // Get pending offers
     async getPendingOffers(leagueId) {
         try {
             const response = await api.get(`/api/players/offers/${leagueId}`);
@@ -156,7 +156,7 @@ class PlayerService {
         }
     }
 
-    // Aceptar oferta
+    // Accept offer
     async acceptOffer(offerId) {
         try {
             const response = await api.post(`/api/players/offer/accept/${offerId}`);
@@ -167,7 +167,7 @@ class PlayerService {
         }
     }
 
-    // Rechazar oferta
+    // Reject offer
     async rejectOffer(offerId) {
         try {
             const response = await api.post(`/api/players/offer/reject/${offerId}`);
@@ -178,7 +178,7 @@ class PlayerService {
         }
     }
 
-    // Obtener usuarios de la liga
+    // Get users in a league
     async getLeagueUsers(leagueId) {
         try {
             const response = await api.get(`/api/league-users/${leagueId}`);

@@ -143,7 +143,7 @@ const MainContent = ({ isSidebarOpen, openAuthModal }) => {
             startIcon={<GroupAdd />}
             onClick={() => isLoggedIn ? setIsJoinModalOpen(true) : handleOpenLogin()}
           >
-            Join League
+            Unirse a liga
           </Button>
 
           <Button
@@ -152,7 +152,7 @@ const MainContent = ({ isSidebarOpen, openAuthModal }) => {
             startIcon={<Add />}
             onClick={() => isLoggedIn ? setIsCreateModalOpen(true) : handleOpenLogin()}
           >
-            Create League
+            Crear liga
           </Button>
         </Box>
       </div>

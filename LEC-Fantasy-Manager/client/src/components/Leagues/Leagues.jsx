@@ -142,8 +142,8 @@ const Leagues = ({ leagues, onLeagueChange }) => {
                                     color="primary"
                                     sx={{
                                         position: 'absolute',
-                                        top: 10,
-                                        right: 10,
+                                        top: 16,
+                                        right: 120,
                                         zIndex: 10
                                     }}
                                 />
@@ -157,7 +157,7 @@ const Leagues = ({ leagues, onLeagueChange }) => {
                                     {isCreator && (
                                         <Chip
                                             icon={<SportsSoccer />}
-                                            label="Owner"
+                                            label="Anfitrión"
                                             color="primary"
                                             size="small"
                                         />
@@ -230,9 +230,9 @@ const Leagues = ({ leagues, onLeagueChange }) => {
                                     <Button
                                         size="small"
                                         color="error"
-                                        onClick={() => handleOpenLeaveDialog(league._id, league.Nombre)}
+                                        /* onClick={() => handleOpenLeaveDialog(league._id, league.Nombre)} */
                                     >
-                                        Borrar liga
+                                        Anfitrión de la liga
                                     </Button>
                                 ) : (
                                     <Button

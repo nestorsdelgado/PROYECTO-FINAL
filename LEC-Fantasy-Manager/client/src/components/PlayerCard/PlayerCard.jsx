@@ -15,20 +15,20 @@ import {
     Block
 } from '@mui/icons-material';
 
-// Función auxiliar para obtener el color de la posición
+// Helper function to get position color
 const getPositionColor = (position) => {
     const colors = {
-        top: '#F44336',    // Rojo
-        jungle: '#4CAF50', // Verde
-        mid: '#2196F3',    // Azul
-        adc: '#FF9800',    // Naranja
-        support: '#9C27B0' // Púrpura
+        top: '#F44336',    // Red
+        jungle: '#4CAF50', // Green
+        mid: '#2196F3',    // Blue
+        adc: '#FF9800',    // Orange
+        support: '#9C27B0' // Purple
     };
 
     return colors[position?.toLowerCase()] || '#757575';
 };
 
-// Función auxiliar para obtener el nombre completo de la posición
+// Helper function to get full position name
 const getPositionName = (position) => {
     const names = {
         top: 'Top Laner',
@@ -42,7 +42,7 @@ const getPositionName = (position) => {
 };
 
 const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
-    // Adaptación de campos de la API de LoL Esports
+    // Adapt fields from LoL Esports API
     const adaptedPlayer = {
         id: player.id,
         name: player.summonerName || player.name,
@@ -51,34 +51,34 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
         teamName: player.teamName,
         champion: player.champions && player.champions.length > 0 ? player.champions[0].name : 'Unknown',
         imageUrl: player.image || player.profilePhotoUrl,
-        price: player.price || 5, // Precio por defecto si no está definido
-        kda: player.kda || (Math.random() * 3 + 2).toFixed(1), // KDA simulado si no está disponible
-        csPerMin: player.csPerMin || (Math.random() * 3 + 7).toFixed(1) // CS/min simulado
+        price: player.price || 5, // Default price if not defined
+        kda: player.kda || (Math.random() * 3 + 2).toFixed(1), // Simulated KDA if not available
+        csPerMin: player.csPerMin || (Math.random() * 3 + 7).toFixed(1) // Simulated CS/min
     };
 
-    // Verificar si ya tenemos 2 jugadores del mismo equipo
+    // Check if already have 2 players from same team
     const teamPlayersCount = userPlayers.filter(p => p.team === adaptedPlayer.team).length;
     const maxTeamPlayersReached = teamPlayersCount >= 2 && !isOwned;
 
-    // Estado del botón (comprado, bloqueado o disponible)
+    // Button state (purchased, blocked or available)
     const getButtonState = () => {
         if (isOwned) {
             return {
-                text: "Comprado",
+                text: "Purchased",
                 color: "success",
                 disabled: true,
                 icon: <CheckCircle />
             };
         } else if (maxTeamPlayersReached) {
             return {
-                text: "Límite equipo",
+                text: "Team limit",
                 color: "error",
                 disabled: true,
                 icon: <Block />
             };
         } else {
             return {
-                text: `Comprar (${adaptedPlayer.price}M€)`,
+                text: `Buy (${adaptedPlayer.price}M€)`,
                 color: "primary",
                 disabled: false,
                 icon: <ShoppingCart />
@@ -99,10 +99,10 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                 border: isOwned ? '1px solid #4caf50' : 'none',
             }}
         >
-            {/* Indicador visual para jugadores propios */}
+            {/* Visual indicator for owned players */}
             {isOwned && (
                 <Chip
-                    label="Tu jugador"
+                    label="Your player"
                     color="success"
                     icon={<CheckCircle />}
                     sx={{
@@ -114,7 +114,7 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                 />
             )}
 
-            {/* Imagen del jugador */}
+            {/* Player image */}
             <CardMedia
                 component="img"
                 height="200"
@@ -124,7 +124,7 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
             />
 
             <CardContent sx={{ flexGrow: 1 }}>
-                {/* Nombre y equipo */}
+                {/* Name and team */}
                 <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
                     {adaptedPlayer.name}
                 </Typography>
@@ -146,9 +146,9 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                     />
                 </Box>
 
-                {/* Stats del jugador */}
+                {/* Player stats */}
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Equipo: {adaptedPlayer.teamName || adaptedPlayer.team}
+                    Team: {adaptedPlayer.teamName || adaptedPlayer.team}
                 </Typography>
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -174,10 +174,10 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                 <Tooltip
                     title={
                         maxTeamPlayersReached
-                            ? "Ya tienes 2 jugadores de este equipo"
+                            ? "You already have 2 players from this team"
                             : isOwned
-                                ? "Este jugador ya es tuyo"
-                                : `Precio: ${adaptedPlayer.price} millones €`
+                                ? "You already own this player"
+                                : `Price: ${adaptedPlayer.price} million €`
                     }
                 >
                     <span style={{ width: '100%' }}>

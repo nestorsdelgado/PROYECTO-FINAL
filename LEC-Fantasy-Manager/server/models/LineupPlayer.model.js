@@ -26,7 +26,7 @@ const lineupPlayerSchema = new mongoose.Schema({
     }
 });
 
-// Índice compuesto para asegurar que solo haya un jugador por posición en cada jornada
+// Composite index to ensure only one player per position in each matchday
 lineupPlayerSchema.index({ userId: 1, leagueId: 1, position: 1, matchday: 1 }, { unique: true });
 
 module.exports = mongoose.model('LineupPlayer', lineupPlayerSchema);

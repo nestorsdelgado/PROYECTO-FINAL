@@ -37,7 +37,7 @@ const playerOfferSchema = new mongoose.Schema({
     expiresAt: {
         type: Date,
         default: function () {
-            // Las ofertas expiran en 48 horas por defecto
+            // Offers expire in 48 hours by default
             const date = new Date();
             date.setHours(date.getHours() + 48);
             return date;

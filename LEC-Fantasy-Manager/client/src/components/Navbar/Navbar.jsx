@@ -73,7 +73,7 @@ const Navbar = ({ isSidebarOpen, toggleSidebar, openAuthModal }) => {
           [
             <MenuItem key="user-info" disabled>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                Hello, {username}
+                Bienvenido, {username}
               </Typography>
             </MenuItem>,
             <MenuItem key="logout" onClick={handleLogout}>Log Out</MenuItem>

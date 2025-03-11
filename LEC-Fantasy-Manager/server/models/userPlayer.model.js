@@ -21,7 +21,7 @@ const userPlayerSchema = new mongoose.Schema({
     }
 });
 
-// Compuesto único para evitar compras duplicadas
+// Unique compound index to prevent duplicate purchases
 userPlayerSchema.index({ playerId: 1, userId: 1, leagueId: 1 }, { unique: true });
 
 module.exports = mongoose.model('UserPlayer', userPlayerSchema);

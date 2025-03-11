@@ -24,20 +24,20 @@ import playerService from '../../services/players.service';
 import { SportsSoccer, Person, ArrowForward, Error, AttachMoney, SportsEsports, ShoppingCart } from '@mui/icons-material';
 import './TeamPage.css';
 
-// Función auxiliar para obtener el color de la posición
+// Helper function to get position color
 const getPositionColor = (position) => {
     const colors = {
-        top: '#F44336',    // Rojo
-        jungle: '#4CAF50', // Verde
-        mid: '#2196F3',    // Azul
-        adc: '#FF9800',    // Naranja
-        support: '#9C27B0' // Púrpura
+        top: '#F44336',    // Red
+        jungle: '#4CAF50', // Green
+        mid: '#2196F3',    // Blue
+        adc: '#FF9800',    // Orange
+        support: '#9C27B0' // Purple
     };
 
     return colors[position?.toLowerCase()] || '#757575';
 };
 
-// Función auxiliar para obtener el nombre completo de la posición
+// Helper function to get full position name
 const getPositionName = (position) => {
     const names = {
         top: 'Top Laner',
@@ -50,7 +50,7 @@ const getPositionName = (position) => {
     return names[position?.toLowerCase()] || position;
 };
 
-// Función para obtener icono de posición
+// Helper function to get position icon
 const getPositionIcon = (position) => {
     switch (position.toLowerCase()) {
         case 'top':
@@ -86,7 +86,7 @@ const TeamPage = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [successMessage, setSuccessMessage] = useState("");
 
-    // Estado para diálogo de oferta
+    // State for offer dialog
     const [offerDialog, setOfferDialog] = useState({
         open: false,
         playerId: null,
@@ -94,11 +94,11 @@ const TeamPage = () => {
         playerName: ""
     });
 
-    // Estado para selección de usuario
+    // State for user selection
     const [selectedUser, setSelectedUser] = useState("");
     const [leagueUsers, setLeagueUsers] = useState([]);
 
-    // Cargar datos del equipo y alineación
+    // Load team data and lineup
     useEffect(() => {
         if (!selectedLeague) {
             setLoading(false);
@@ -110,14 +110,14 @@ const TeamPage = () => {
             setError("");
 
             try {
-                // Cargar jugadores del usuario
+                // Load user's players
                 const players = await playerService.getUserPlayers(selectedLeague._id);
                 setUserPlayers(players);
 
-                // Cargar alineación actual
+                // Load current lineup
                 const currentLineup = await playerService.getCurrentLineup(selectedLeague._id);
 
-                // Convertir array a objeto por posición
+                // Convert array to object by position
                 const lineupByPosition = {
                     top: null,
                     jungle: null,
@@ -132,16 +132,16 @@ const TeamPage = () => {
 
                 setLineup(lineupByPosition);
 
-                // Cargar dinero disponible
+                // Load available money
                 const userLeagueData = await playerService.getUserLeagueData(selectedLeague._id);
                 setAvailableMoney(userLeagueData.money);
 
-                // Cargar usuarios de la liga
+                // Load league users
                 const leagueUsersData = await playerService.getLeagueUsers(selectedLeague._id);
                 setLeagueUsers(leagueUsersData);
             } catch (err) {
                 console.error("Error loading team data:", err);
-                setError("Error al cargar los datos del equipo");
+                setError("Error loading team data");
             } finally {
                 setLoading(false);
             }
@@ -150,60 +150,60 @@ const TeamPage = () => {
         fetchTeamData();
     }, [selectedLeague]);
 
-    // Manejar cambio de pestaña
+    // Handle tab change
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
     };
 
-    // Manejar drag & drop
+    // Handle drag & drop
     const handleDragEnd = async (result) => {
         const { source, destination } = result;
 
-        // Si no hay destino válido, no hacer nada
+        // If no valid destination, do nothing
         if (!destination) return;
 
-        // Si arrastró a la misma posición, no hacer nada
+        // If dragged to the same position, do nothing
         if (source.droppableId === destination.droppableId &&
             source.index === destination.index) {
             return;
         }
 
-        // Si arrastró desde la lista de jugadores a una posición
+        // If dragged from player list to a position
         if (source.droppableId === 'playersList' &&
             ['top', 'jungle', 'mid', 'adc', 'support'].includes(destination.droppableId)) {
 
             const playerId = userPlayers[source.index].id;
             const playerRole = userPlayers[source.index].role.toLowerCase();
 
-            // Verificar que la posición coincide
+            // Verify position matches
             if (playerRole !== destination.droppableId) {
-                setError(`Este jugador es ${getPositionName(playerRole)}, no puede jugar como ${getPositionName(destination.droppableId)}`);
+                setError(`This player is ${getPositionName(playerRole)}, not ${getPositionName(destination.droppableId)}`);
                 return;
             }
 
             try {
-                // Actualizar en el backend
+                // Update in backend
                 await playerService.setPlayerAsStarter(
                     playerId,
                     selectedLeague._id,
                     destination.droppableId
                 );
 
-                // Actualizar localmente
+                // Update locally
                 setLineup(prev => ({
                     ...prev,
                     [destination.droppableId]: userPlayers[source.index]
                 }));
 
-                setSuccessMessage(`¡${userPlayers[source.index].summonerName || userPlayers[source.index].name} establecido como titular!`);
+                setSuccessMessage(`${userPlayers[source.index].summonerName || userPlayers[source.index].name} set as starter!`);
             } catch (err) {
                 console.error("Error setting player as starter:", err);
-                setError(err.response?.data?.message || "Error al establecer jugador como titular");
+                setError(err.response?.data?.message || "Error setting player as starter");
             }
         }
     };
 
-    // Vender jugador al mercado
+    // Sell player to market
     const handleSellToMarket = async (playerId) => {
         try {
             const player = userPlayers.find(p => p.id === playerId);
@@ -213,13 +213,13 @@ const TeamPage = () => {
 
             const response = await playerService.sellPlayerToMarket(playerId, selectedLeague._id);
 
-            // Actualizar dinero
+            // Update money
             setAvailableMoney(response.newBalance);
 
-            // Eliminar jugador de la lista
+            // Remove player from list
             setUserPlayers(prev => prev.filter(p => p.id !== playerId));
 
-            // Si estaba en la alineación, eliminarlo
+            // If player was in lineup, remove them
             Object.keys(lineup).forEach(position => {
                 if (lineup[position] && lineup[position].id === playerId) {
                     setLineup(prev => ({
@@ -229,14 +229,14 @@ const TeamPage = () => {
                 }
             });
 
-            setSuccessMessage(`¡Jugador vendido por ${sellPrice}M€!`);
+            setSuccessMessage(`Player sold for ${sellPrice}M€!`);
         } catch (err) {
             console.error("Error selling player:", err);
-            setError(err.response?.data?.message || "Error al vender jugador");
+            setError(err.response?.data?.message || "Error selling player");
         }
     };
 
-    // Abrir diálogo de oferta a usuario
+    // Open offer dialog to user
     const handleOfferToUser = (playerId) => {
         const player = userPlayers.find(p => p.id === playerId);
         if (!player) return;
@@ -244,16 +244,16 @@ const TeamPage = () => {
         setOfferDialog({
             open: true,
             playerId,
-            price: player.price, // Precio sugerido inicial
+            price: player.price, // Suggested initial price
             playerName: player.summonerName || player.name
         });
     };
 
-    // Enviar oferta a usuario
+    // Send offer to user
     const handleSendOffer = async () => {
         try {
             if (!selectedUser) {
-                setError("Debes seleccionar un usuario");
+                setError("You must select a user");
                 return;
             }
 
@@ -272,14 +272,14 @@ const TeamPage = () => {
             });
 
             setSelectedUser("");
-            setSuccessMessage("Oferta enviada correctamente");
+            setSuccessMessage("Offer sent successfully");
         } catch (err) {
             console.error("Error creating offer:", err);
-            setError(err.response?.data?.message || "Error al crear oferta");
+            setError(err.response?.data?.message || "Error creating offer");
         }
     };
 
-    // Cerrar diálogo de oferta
+    // Close offer dialog
     const handleCloseOfferDialog = () => {
         setOfferDialog({
             open: false,
@@ -290,7 +290,7 @@ const TeamPage = () => {
         setSelectedUser("");
     };
 
-    // Manejar cambio de precio en oferta
+    // Handle price change in offer
     const handlePriceChange = (e) => {
         const value = parseInt(e.target.value);
         if (!isNaN(value) && value > 0) {
@@ -301,7 +301,7 @@ const TeamPage = () => {
         }
     };
 
-    // Limpiar mensajes
+    // Clear messages
     const handleClearError = () => {
         setError("");
     };
@@ -310,13 +310,13 @@ const TeamPage = () => {
         setSuccessMessage("");
     };
 
-    // Renderizar pestaña de alineación
+    // Render lineup tab
     const renderLineupTab = () => {
         return (
             <Box className="lineup-container">
                 <Box className="field-background">
                     <DragDropContext onDragEnd={handleDragEnd}>
-                        {/* Posiciones en el mapa */}
+                        {/* Position slots on the map */}
                         {Object.keys(lineup).map(position => (
                             <Droppable key={position} droppableId={position}>
                                 {(provided, snapshot) => (
@@ -355,7 +355,7 @@ const TeamPage = () => {
                                         ) : (
                                             <Box className="empty-position">
                                                 <Typography>
-                                                    {`Arrastra un ${getPositionName(position)} aquí`}
+                                                    {`Drag a ${getPositionName(position)} here`}
                                                 </Typography>
                                             </Box>
                                         )}
@@ -366,7 +366,7 @@ const TeamPage = () => {
                             </Droppable>
                         ))}
 
-                        {/* Lista de jugadores disponibles */}
+                        {/* Available players list */}
                         <Droppable droppableId="playersList">
                             {(provided) => (
                                 <Box
@@ -375,7 +375,7 @@ const TeamPage = () => {
                                     className="available-players"
                                 >
                                     <Typography variant="h6" sx={{ mb: 2 }}>
-                                        Jugadores Disponibles
+                                        Available Players
                                     </Typography>
 
                                     {userPlayers.length > 0 ? (
@@ -411,7 +411,7 @@ const TeamPage = () => {
                                         ))
                                     ) : (
                                         <Typography>
-                                            No tienes jugadores. Ve al mercado para comprar algunos.
+                                            You don't have any players. Go to the market to buy some.
                                         </Typography>
                                     )}
 
@@ -425,13 +425,13 @@ const TeamPage = () => {
         );
     };
 
-    // Renderizar pestaña de mercado del equipo
+    // Render market tab
     const renderMarketTab = () => {
         return (
             <Box className="team-market">
                 <Paper className="money-info-card">
                     <Typography variant="h6">
-                        Dinero Disponible
+                        Available Money
                     </Typography>
                     <Typography variant="h4">
                         {availableMoney}M€
@@ -439,7 +439,7 @@ const TeamPage = () => {
                 </Paper>
 
                 <Typography variant="h5" sx={{ mb: 2, mt: 3 }}>
-                    Tus Jugadores
+                    Your Players
                 </Typography>
 
                 <Grid container spacing={3}>
@@ -460,7 +460,7 @@ const TeamPage = () => {
                                             {player.team} - {getPositionName(player.role)}
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                                            Valor: {player.price}M€
+                                            Value: {player.price}M€
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -473,7 +473,7 @@ const TeamPage = () => {
                                         color="error"
                                         onClick={() => handleSellToMarket(player.id)}
                                     >
-                                        Vender por {Math.round(player.price * 2 / 3)}M€
+                                        Sell for {Math.round(player.price * 2 / 3)}M€
                                     </Button>
 
                                     <Button
@@ -481,7 +481,7 @@ const TeamPage = () => {
                                         color="primary"
                                         onClick={() => handleOfferToUser(player.id)}
                                     >
-                                        Ofrecer a Usuario
+                                        Offer to User
                                     </Button>
                                 </Box>
                             </Paper>
@@ -492,7 +492,7 @@ const TeamPage = () => {
                 {userPlayers.length === 0 && (
                     <Paper className="empty-team-message">
                         <Typography variant="h6">
-                            No tienes jugadores en tu equipo
+                            You don't have any players in your team
                         </Typography>
                         <Button
                             variant="contained"
@@ -501,7 +501,7 @@ const TeamPage = () => {
                             sx={{ mt: 2 }}
                             startIcon={<ShoppingCart />}
                         >
-                            Ir al Mercado
+                            Go to Market
                         </Button>
                     </Paper>
                 )}
@@ -509,12 +509,12 @@ const TeamPage = () => {
         );
     };
 
-    // Si no hay liga seleccionada, mostrar mensaje
+    // If no league selected, show message
     if (!selectedLeague) {
         return (
             <Box className="team-container no-league">
                 <Typography variant="h5" sx={{ color: 'white', mb: 3, textAlign: 'center' }}>
-                    Debes seleccionar una liga para ver tu equipo
+                    You must select a league to view your team
                 </Typography>
 
                 <Button
@@ -522,7 +522,7 @@ const TeamPage = () => {
                     color="primary"
                     onClick={() => navigate('/')}
                 >
-                    Ir a seleccionar liga
+                    Go select a league
                 </Button>
             </Box>
         );
@@ -531,7 +531,7 @@ const TeamPage = () => {
     return (
         <Box className="team-container">
             <Typography variant="h4" component="h1" sx={{ mb: 3, textAlign: 'center' }}>
-                Mi Equipo - {selectedLeague.Nombre}
+                My Team - {selectedLeague.Nombre}
             </Typography>
 
             {loading ? (
@@ -540,7 +540,7 @@ const TeamPage = () => {
                 </Box>
             ) : (
                 <>
-                    <Paper sx={{ mb: 3 }}>
+                    <Paper sx={{ mb: 3, background:'#0A1428', marginTop: '5vh' }}>
                         <Tabs
                             value={activeTab}
                             onChange={handleTabChange}
@@ -548,12 +548,12 @@ const TeamPage = () => {
                             variant="fullWidth"
                         >
                             <Tab
-                                label="Alineación"
+                                label="Lineup"
                                 icon={<SportsEsports />}
                                 iconPosition="start"
                             />
                             <Tab
-                                label="Mercado"
+                                label="Market"
                                 icon={<AttachMoney />}
                                 iconPosition="start"
                             />
@@ -564,10 +564,10 @@ const TeamPage = () => {
                 </>
             )}
 
-            {/* Diálogo de oferta a usuario */}
+            {/* Offer dialog */}
             <Dialog open={offerDialog.open} onClose={handleCloseOfferDialog}>
                 <DialogTitle>
-                    Ofrecer jugador a otro usuario
+                    Offer player to another user
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="h6" sx={{ mb: 2 }}>
@@ -576,20 +576,20 @@ const TeamPage = () => {
 
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Selecciona el usuario que recibirá la oferta:
+                            Select the user who will receive the offer:
                         </Typography>
 
                         <TextField
                             select
                             fullWidth
-                            label="Usuario"
+                            label="User"
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
                             SelectProps={{
                                 native: true,
                             }}
                         >
-                            <option value="">Selecciona un usuario</option>
+                            <option value="">Select a user</option>
                             {leagueUsers.map((user) => (
                                 <option key={user.id} value={user.id}>
                                     {user.username}
@@ -600,7 +600,7 @@ const TeamPage = () => {
 
                     <Box>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Precio de venta (en millones €):
+                            Sale price (in millions €):
                         </Typography>
 
                         <TextField
@@ -614,19 +614,19 @@ const TeamPage = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseOfferDialog}>
-                        Cancelar
+                        Cancel
                     </Button>
                     <Button
                         onClick={handleSendOffer}
                         variant="contained"
                         color="primary"
                     >
-                        Enviar Oferta
+                        Send Offer
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Alertas */}
+            {/* Alerts */}
             <Snackbar
                 open={!!error}
                 autoHideDuration={6000}

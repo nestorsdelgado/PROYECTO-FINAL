@@ -37,7 +37,7 @@ const MarketPage = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Posiciones para el filtro - adaptadas a la API de LoL Esports
+  // Positions for filter - adapted to LoL Esports API
   const positions = [
     { value: 'top', label: 'Top Laner' },
     { value: 'jungle', label: 'Jungler' },
@@ -46,9 +46,9 @@ const MarketPage = () => {
     { value: 'support', label: 'Support' }
   ];
 
-  // Efecto para cargar datos iniciales
+  // Effect to load initial data
   useEffect(() => {
-    // Si no hay liga seleccionada, no cargar datos
+    // If no league selected, don't load data
     if (!selectedLeague) {
       setLoading(false);
       return;
@@ -59,13 +59,13 @@ const MarketPage = () => {
       setError("");
 
       try {
-        // Cargar todos los jugadores
+        // Load all players
         const allPlayers = await playerService.getAllPlayers();
 
-        // Cargar equipos para el filtro
+        // Load teams for filter
         const teamsData = await playerService.getTeams();
 
-        // Cargar jugadores del usuario en esta liga
+        // Load user's players in this league
         const userPlayersData = await playerService.getUserPlayers(selectedLeague._id);
 
         setPlayers(allPlayers);
@@ -74,7 +74,7 @@ const MarketPage = () => {
         setUserPlayers(userPlayersData);
       } catch (err) {
         console.error("Error loading market data:", err);
-        setError("Error al cargar los datos del mercado. Por favor, inténtalo de nuevo.");
+        setError("Error loading market data. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -83,25 +83,25 @@ const MarketPage = () => {
     fetchData();
   }, [selectedLeague, refreshKey]);
 
-  // Efecto para filtrar jugadores
+  // Effect to filter players
   useEffect(() => {
     let results = players;
 
-    // Filtrar por nombre
+    // Filter by name
     if (searchTerm) {
       results = results.filter(player =>
         (player.summonerName || player.name).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Filtrar por posición
+    // Filter by position
     if (positionFilter) {
       results = results.filter(player =>
         player.role?.toLowerCase() === positionFilter.toLowerCase()
       );
     }
 
-    // Filtrar por equipo
+    // Filter by team
     if (teamFilter) {
       results = results.filter(player => player.team === teamFilter);
     }
@@ -109,11 +109,11 @@ const MarketPage = () => {
     setFilteredPlayers(results);
   }, [searchTerm, positionFilter, teamFilter, players]);
 
-  // Función para manejar la compra de jugadores
+  // Function to handle player purchase
   const handleBuyPlayer = async (playerId) => {
     if (!selectedLeague) return;
 
-    // Obtener datos del jugador
+    // Get player data
     const playerToBuy = players.find(p => p.id === playerId);
     if (!playerToBuy) return;
 
@@ -121,30 +121,30 @@ const MarketPage = () => {
       setLoading(true);
       await playerService.buyPlayer(playerId, selectedLeague._id);
 
-      // Mostrar mensaje de éxito
-      setSuccessMessage(`¡Has fichado a ${playerToBuy.summonerName || playerToBuy.name} por ${playerToBuy.price}M€!`);
+      // Show success message
+      setSuccessMessage(`You've signed ${playerToBuy.summonerName || playerToBuy.name} for ${playerToBuy.price}M€!`);
 
-      // Refrescar datos
+      // Refresh data
       setRefreshKey(prev => prev + 1);
     } catch (err) {
       console.error("Error buying player:", err);
-      setError(err.response?.data?.message || "Error al comprar el jugador.");
+      setError(err.response?.data?.message || "Error buying player.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Limpiar mensaje de error
+  // Clear error message
   const handleCloseError = () => {
     setError("");
   };
 
-  // Limpiar mensaje de éxito
+  // Clear success message
   const handleCloseSuccess = () => {
     setSuccessMessage("");
   };
 
-  // Si no hay liga seleccionada, mostrar mensaje
+  // If no league selected, show message
   if (!selectedLeague) {
     return (
       <Box
@@ -158,11 +158,11 @@ const MarketPage = () => {
         }}
       >
         <Typography variant="h5" sx={{ color: 'white', mb: 3, textAlign: 'center' }}>
-          Debes seleccionar una liga para acceder al mercado de jugadores
+          You must select a league to access the player market
         </Typography>
 
         <Typography variant="body1" sx={{ color: 'white', mb: 4, textAlign: 'center' }}>
-          Dirígete a la página principal y selecciona una liga para continuar.
+          Go to the main page and select a league to continue.
         </Typography>
 
         <Button
@@ -170,7 +170,7 @@ const MarketPage = () => {
           color="primary"
           onClick={() => navigate('/')}
         >
-          Ir a seleccionar liga
+          Go to league selection
         </Button>
       </Box>
     );
@@ -179,10 +179,10 @@ const MarketPage = () => {
   return (
     <div className="market-container">
       <Typography variant="h4" component="h1" sx={{ mb: 4, textAlign: 'center' }}>
-        Mercado de Jugadores - {selectedLeague.Nombre}
+        Player Market - {selectedLeague.Nombre}
       </Typography>
 
-      {/* Filtros */}
+      {/* Filters */}
       <Box className="market-filters">
         <TextField
           label="Buscar jugador"
@@ -210,10 +210,10 @@ const MarketPage = () => {
             labelId="position-filter-label"
             value={positionFilter}
             onChange={e => setPositionFilter(e.target.value)}
-            label="Posición"
+            label="Position"
             sx={{ color: 'white' }}
           >
-            <MenuItem value="">Todas las posiciones</MenuItem>
+            <MenuItem value="">All positions</MenuItem>
             {positions.map(pos => (
               <MenuItem key={pos.value} value={pos.value}>
                 {pos.label}
@@ -230,10 +230,10 @@ const MarketPage = () => {
             labelId="team-filter-label"
             value={teamFilter}
             onChange={e => setTeamFilter(e.target.value)}
-            label="Equipo"
+            label="Team"
             sx={{ color: 'white' }}
           >
-            <MenuItem value="">Todos los equipos</MenuItem>
+            <MenuItem value="">All teams</MenuItem>
             {teams.map(team => (
               <MenuItem key={team.id} value={team.id}>
                 {team.name}
@@ -243,16 +243,16 @@ const MarketPage = () => {
         </FormControl>
       </Box>
 
-      {/* Información de estado del equipo */}
+      {/* Team status information */}
       <Box className="market-team-info">
         <Typography variant="h6" sx={{ mb: 1 }}>
-          Mi Equipo
+          Mi equipo
         </Typography>
         <Typography variant="body1">
-          Jugadores en plantilla: {userPlayers.length}/5
+          Jugadores en plantilla: {userPlayers.length}/10
         </Typography>
         <Typography variant="body2" sx={{ mt: 1 }}>
-          Recuerda: máximo 2 jugadores del mismo equipo
+          Recuerda: máximo 2 jugadores de cada equipo
         </Typography>
       </Box>
 
@@ -263,16 +263,16 @@ const MarketPage = () => {
         </Box>
       )}
 
-      {/* Lista de jugadores */}
+      {/* Player list */}
       {!loading && (
         <>
           <Typography variant="subtitle1" sx={{ mb: 2 }}>
-            Mostrando {filteredPlayers.length} jugadores
+            Showing {filteredPlayers.length} players
           </Typography>
 
           <Grid container spacing={3}>
             {filteredPlayers.map(player => {
-              // Comprobar si el jugador pertenece al usuario
+              // Check if player is owned by user
               const isOwned = userPlayers.some(p => p.id === player.id);
 
               return (
@@ -291,14 +291,14 @@ const MarketPage = () => {
           {filteredPlayers.length === 0 && !loading && (
             <Box sx={{ textAlign: 'center', mt: 4 }}>
               <Typography variant="h6" sx={{ color: 'white' }}>
-                No se encontraron jugadores con los filtros seleccionados
+                No players found with the selected filters
               </Typography>
             </Box>
           )}
         </>
       )}
 
-      {/* Alertas */}
+      {/* Alerts */}
       <Snackbar
         open={!!error}
         autoHideDuration={6000}

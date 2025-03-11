@@ -9,7 +9,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
-    margin-bottom: 2rem;
+    margin-top: 5vh;
+    margin-bottom: 2vh;
     background-color: rgba(0, 0, 0, 0.8);
     padding: 1.5rem;
     border-radius: 8px;
@@ -28,7 +29,7 @@
     border-left: 4px solid #1976d2;
 }
 
-/* Estilos para inputs con tema oscuro */
+/* Dark theme styles for inputs */
 .MuiOutlinedInput-root {
     color: white !important;
 }

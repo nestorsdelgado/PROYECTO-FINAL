@@ -1,11 +1,34 @@
 import api from "./axios";
 
+const normalizePlayerData = (player) => {
+    if (!player) return null;
+
+    return {
+        ...player, // Mantener todas las propiedades originales
+        // Asegurar que estos campos siempre existan
+        id: player.id || '',
+        name: player.name || '',
+        summonerName: player.summonerName || player.name || '',
+        role: player.role?.toLowerCase() || '',
+        team: player.team || '',
+        teamName: player.teamName || player.team || '',
+        // Normalizar las URLs de imágenes
+        imageUrl: player.imageUrl || player.image || player.profilePhotoUrl ||
+            'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg',
+        price: player.price || 5,
+    };
+};
+
 class PlayerService {
+
     // Get all players
     async getAllPlayers() {
         try {
             const response = await api.get("/api/players");
-            return response.data;
+            // Normalizar cada jugador para asegurar coherencia
+            return Array.isArray(response.data)
+                ? response.data.map(normalizePlayerData).filter(Boolean)
+                : [];
         } catch (error) {
             console.error("Error fetching players:", error);
             throw error;
@@ -52,10 +75,13 @@ class PlayerService {
     async getUserPlayers(leagueId) {
         try {
             const response = await api.get(`/api/players/user/${leagueId}`);
-            return response.data;
+            // Normalizar cada jugador para asegurar coherencia
+            return Array.isArray(response.data)
+                ? response.data.map(normalizePlayerData).filter(Boolean)
+                : [];
         } catch (error) {
             console.error("Error fetching user players:", error);
-            throw error;
+            return []; // Retornar array vacío en caso de error
         }
     }
 
@@ -108,10 +134,13 @@ class PlayerService {
     async getCurrentLineup(leagueId, matchday = 1) {
         try {
             const response = await api.get(`/api/players/lineup/${leagueId}/${matchday}`);
-            return response.data;
+            // Normalizar cada jugador para asegurar coherencia
+            return Array.isArray(response.data)
+                ? response.data.map(normalizePlayerData).filter(Boolean)
+                : [];
         } catch (error) {
             console.error("Error fetching current lineup:", error);
-            throw error;
+            return []; // Retornar array vacío en caso de error
         }
     }
 
@@ -188,6 +217,7 @@ class PlayerService {
             throw error;
         }
     }
+
 }
 
 export default new PlayerService();

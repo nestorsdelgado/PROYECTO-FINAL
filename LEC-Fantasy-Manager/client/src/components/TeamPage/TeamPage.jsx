@@ -159,46 +159,53 @@ const TeamPage = () => {
     const handleDragEnd = async (result) => {
         const { source, destination } = result;
 
-        // If no valid destination, do nothing
+        // Si no hay destino válido, no hacer nada
         if (!destination) return;
 
-        // If dragged to the same position, do nothing
+        // Si arrastró a la misma posición, no hacer nada
         if (source.droppableId === destination.droppableId &&
             source.index === destination.index) {
             return;
         }
 
-        // If dragged from player list to a position
+        // Si arrastró desde la lista de jugadores a una posición
         if (source.droppableId === 'playersList' &&
             ['top', 'jungle', 'mid', 'adc', 'support'].includes(destination.droppableId)) {
 
-            const playerId = userPlayers[source.index].id;
-            const playerRole = userPlayers[source.index].role.toLowerCase();
+            const draggedPlayer = userPlayers[source.index];
+            if (!draggedPlayer) {
+                console.error("Player not found at index:", source.index);
+                return;
+            }
 
-            // Verify position matches
+            const playerId = draggedPlayer.id;
+            // Aseguramos que role esté en minúsculas para la comparación
+            const playerRole = (draggedPlayer.role || '').toLowerCase();
+
+            // Verificar que la posición coincide
             if (playerRole !== destination.droppableId) {
-                setError(`This player is ${getPositionName(playerRole)}, not ${getPositionName(destination.droppableId)}`);
+                setError(`Este jugador es ${getPositionName(playerRole)}, no puede jugar como ${getPositionName(destination.droppableId)}`);
                 return;
             }
 
             try {
-                // Update in backend
+                // Actualizar en el backend
                 await playerService.setPlayerAsStarter(
                     playerId,
                     selectedLeague._id,
                     destination.droppableId
                 );
 
-                // Update locally
+                // Actualizar localmente - Crear copia completa del jugador
                 setLineup(prev => ({
                     ...prev,
-                    [destination.droppableId]: userPlayers[source.index]
+                    [destination.droppableId]: { ...draggedPlayer }
                 }));
 
-                setSuccessMessage(`${userPlayers[source.index].summonerName || userPlayers[source.index].name} set as starter!`);
+                setSuccessMessage(`¡${draggedPlayer.summonerName || draggedPlayer.name} establecido como titular!`);
             } catch (err) {
                 console.error("Error setting player as starter:", err);
-                setError(err.response?.data?.message || "Error setting player as starter");
+                setError(err.response?.data?.message || "Error al establecer jugador como titular");
             }
         }
     };
@@ -313,115 +320,150 @@ const TeamPage = () => {
     // Render lineup tab
     const renderLineupTab = () => {
         return (
-            <Box className="lineup-container">
-                <Box className="field-background">
-                    <DragDropContext onDragEnd={handleDragEnd}>
-                        {/* Position slots on the map */}
-                        {Object.keys(lineup).map(position => (
-                            <Droppable key={position} droppableId={position}>
-                                {(provided, snapshot) => (
+            <DragDropContext onDragEnd={handleDragEnd}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    gap: 2,
+                    minHeight: '600px'
+                }}>
+                    {/* Campo a la izquierda */}
+                    <Box sx={{
+                        flex: 2,
+                        position: 'relative',
+                        height: { xs: '400px', sm: '500px', md: '600px' }
+                    }}>
+                        <Box className="field-background">
+                            {/* Posiciones en el mapa */}
+                            {Object.keys(lineup).map(position => (
+                                <Droppable key={position} droppableId={position}>
+                                    {(provided, snapshot) => (
+                                        <Box
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                            className={`position-slot ${position} ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
+                                        >
+                                            <Box className="position-icon">
+                                                {getPositionIcon(position)}
+                                            </Box>
+
+                                            {lineup[position] ? (
+                                                <Draggable
+                                                    key={lineup[position].id}
+                                                    draggableId={String(lineup[position].id)}
+                                                    index={0}
+                                                >
+                                                    {(provided) => (
+                                                        <Box
+                                                            ref={provided.innerRef}
+                                                            {...provided.draggableProps}
+                                                            {...provided.dragHandleProps}
+                                                            className="player-avatar"
+                                                        >
+                                                            <img
+                                                                src={getPlayerImageUrl(lineup[position])}
+                                                                alt={lineup[position].name || lineup[position].summonerName || "Jugador"}
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+                                                                }}
+                                                            />
+                                                            <Typography className="player-name">
+                                                                {lineup[position].summonerName || lineup[position].name || "Jugador"}
+                                                            </Typography>
+                                                        </Box>
+                                                    )}
+                                                </Draggable>
+                                            ) : (
+                                                <Box className="empty-position">
+                                                    <Typography>
+                                                        {`Arrastra un ${getPositionName(position)} aquí`}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+
+                                            {provided.placeholder}
+                                        </Box>
+                                    )}
+                                </Droppable>
+                            ))}
+                        </Box>
+                    </Box>
+
+                    {/* Lista de jugadores disponibles a la derecha */}
+                    <Box sx={{
+                        flex: 1,
+                        minWidth: { xs: '100%', md: '250px' },
+                        maxWidth: { xs: '100%', md: '350px' }
+                    }}>
+                        <Paper sx={{
+                            p: 2,
+                            bgcolor: 'rgba(0, 0, 0, 0.7)',
+                            color: 'white',
+                            height: '100%',
+                            maxHeight: { xs: '350px', md: '600px' },
+                            overflow: 'auto'
+                        }}>
+                            <Typography variant="h6" sx={{ mb: 2 }}>
+                                Jugadores Disponibles
+                            </Typography>
+
+                            <Droppable droppableId="playersList">
+                                {(provided) => (
                                     <Box
                                         ref={provided.innerRef}
                                         {...provided.droppableProps}
-                                        className={`position-slot ${position} ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
                                     >
-                                        <Box className="position-icon">
-                                            {getPositionIcon(position)}
-                                        </Box>
-
-                                        {lineup[position] ? (
-                                            <Draggable
-                                                key={lineup[position].id}
-                                                draggableId={lineup[position].id}
-                                                index={0}
-                                            >
-                                                {(provided) => (
-                                                    <Box
-                                                        ref={provided.innerRef}
-                                                        {...provided.draggableProps}
-                                                        {...provided.dragHandleProps}
-                                                        className="player-avatar"
-                                                    >
-                                                        <img
-                                                            src={lineup[position].imageUrl}
-                                                            alt={lineup[position].name}
-                                                        />
-                                                        <Typography className="player-name">
-                                                            {lineup[position].summonerName || lineup[position].name}
-                                                        </Typography>
-                                                    </Box>
-                                                )}
-                                            </Draggable>
+                                        {userPlayers.length > 0 ? (
+                                            userPlayers.map((player, index) => (
+                                                <Draggable
+                                                    key={player.id}
+                                                    draggableId={String(player.id)}
+                                                    index={index}
+                                                >
+                                                    {(provided) => (
+                                                        <Box
+                                                            ref={provided.innerRef}
+                                                            {...provided.draggableProps}
+                                                            {...provided.dragHandleProps}
+                                                            className="player-list-item"
+                                                            sx={{ mb: 1 }}
+                                                        >
+                                                            <img
+                                                                src={getPlayerImageUrl(player)}
+                                                                alt={player.name || player.summonerName || "Jugador"}
+                                                                className="player-thumbnail"
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+                                                                }}
+                                                            />
+                                                            <Box>
+                                                                <Typography>
+                                                                    {player.summonerName || player.name || "Jugador"}
+                                                                </Typography>
+                                                                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                                                                    {getPositionName(player.role)}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Box>
+                                                    )}
+                                                </Draggable>
+                                            ))
                                         ) : (
-                                            <Box className="empty-position">
-                                                <Typography>
-                                                    {`Drag a ${getPositionName(position)} here`}
-                                                </Typography>
-                                            </Box>
+                                            <Typography>
+                                                No tienes jugadores. Ve al mercado para comprar algunos.
+                                            </Typography>
                                         )}
 
                                         {provided.placeholder}
                                     </Box>
                                 )}
                             </Droppable>
-                        ))}
-
-                        {/* Available players list */}
-                        <Droppable droppableId="playersList">
-                            {(provided) => (
-                                <Box
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                    className="available-players"
-                                >
-                                    <Typography variant="h6" sx={{ mb: 2 }}>
-                                        Available Players
-                                    </Typography>
-
-                                    {userPlayers.length > 0 ? (
-                                        userPlayers.map((player, index) => (
-                                            <Draggable
-                                                key={player.id}
-                                                draggableId={player.id}
-                                                index={index}
-                                            >
-                                                {(provided) => (
-                                                    <Box
-                                                        ref={provided.innerRef}
-                                                        {...provided.draggableProps}
-                                                        {...provided.dragHandleProps}
-                                                        className="player-list-item"
-                                                    >
-                                                        <img
-                                                            src={player.imageUrl}
-                                                            alt={player.name}
-                                                            className="player-thumbnail"
-                                                        />
-                                                        <Box>
-                                                            <Typography>
-                                                                {player.summonerName || player.name}
-                                                            </Typography>
-                                                            <Typography variant="body2" color="textSecondary">
-                                                                {getPositionName(player.role)}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Box>
-                                                )}
-                                            </Draggable>
-                                        ))
-                                    ) : (
-                                        <Typography>
-                                            You don't have any players. Go to the market to buy some.
-                                        </Typography>
-                                    )}
-
-                                    {provided.placeholder}
-                                </Box>
-                            )}
-                        </Droppable>
-                    </DragDropContext>
+                        </Paper>
+                    </Box>
                 </Box>
-            </Box>
+            </DragDropContext>
         );
     };
 
@@ -528,6 +570,21 @@ const TeamPage = () => {
         );
     }
 
+    const getPlayerImageUrl = (player) => {
+        // Asegurarse de que tenemos una URL de imagen válida
+        if (!player) return 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+
+        if (player.imageUrl && player.imageUrl.startsWith('http')) {
+            return player.imageUrl;
+        } else if (player.image && player.image.startsWith('http')) {
+            return player.image;
+        } else if (player.profilePhotoUrl && player.profilePhotoUrl.startsWith('http')) {
+            return player.profilePhotoUrl;
+        }
+        // URL de imagen por defecto
+        return 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+    };
+
     return (
         <Box className="team-container">
             <Typography variant="h4" component="h1" sx={{ mb: 3, textAlign: 'center' }}>
@@ -540,7 +597,7 @@ const TeamPage = () => {
                 </Box>
             ) : (
                 <>
-                    <Paper sx={{ mb: 3, background:'#0A1428', marginTop: '5vh' }}>
+                    <Paper sx={{ mb: 3, background: '#0A1428', marginTop: '5vh' }}>
                         <Tabs
                             value={activeTab}
                             onChange={handleTabChange}

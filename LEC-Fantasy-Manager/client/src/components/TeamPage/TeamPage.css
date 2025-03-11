@@ -1,4 +1,4 @@
-/* TeamPage.css */
+/* TeamPage.css optimizado para HTML5 Drag and Drop */
 
 .team-container {
     padding: 20px;
@@ -44,11 +44,14 @@
     justify-content: center;
     border: 2px dashed rgba(255, 255, 255, 0.3);
     transition: all 0.3s ease;
+    z-index: 10;
 }
 
 .position-slot.dragging-over {
     background-color: rgba(25, 118, 210, 0.5);
     border: 2px solid #1976d2;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(25, 118, 210, 0.7);
 }
 
 .position-icon {
@@ -57,28 +60,28 @@
 }
 
 .position-slot.top {
-    top: 120px;
-    left: 120px;
+    top: 7vh;
+    left: 42vh;
 }
 
 .position-slot.jungle {
-    top: 250px;
-    left: 250px;
+    top: 15vh;
+    left: 57vh;
 }
 
 .position-slot.mid {
-    top: 300px;
-    left: 450px;
+    top: 20vh;
+    left: 75vh;
 }
 
 .position-slot.adc {
-    bottom: 120px;
-    right: 250px;
+    bottom: 1vh;
+    right: 45vh;
 }
 
 .position-slot.support {
-    bottom: 200px;
-    right: 150px;
+    bottom: 3vh;
+    right: 30vh;
 }
 
 .player-avatar {
@@ -92,6 +95,24 @@
     align-items: center;
     cursor: grab;
     background-color: #0A1428;
+    transition: transform 0.2s ease;
+}
+
+.player-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.player-avatar:active {
+    cursor: grabbing;
+}
+
+/* Estilo aplicado cuando el elemento está siendo arrastrado */
+.player-avatar.dragging,
+.player-list-item.dragging {
+    opacity: 0.6;
+    transform: scale(0.95);
+    box-shadow: 0 0 20px rgba(25, 118, 210, 0.9);
 }
 
 .player-avatar img {
@@ -120,31 +141,30 @@
     max-width: 90px;
 }
 
-.available-players {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 250px;
-    max-height: 560px;
-    overflow-y: auto;
-    background-color: rgba(0, 0, 0, 0.7);
-    border-radius: 8px;
-    padding: 16px;
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .player-list-item {
     display: flex;
     align-items: center;
     padding: 8px;
-    margin-bottom: 8px;
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
     cursor: grab;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .player-list-item:hover {
     background-color: rgba(255, 255, 255, 0.2);
+    transform: translateX(5px);
+}
+
+.player-list-item:active {
+    cursor: grabbing;
+    transform: scale(0.98);
 }
 
 .player-thumbnail {
@@ -162,7 +182,7 @@
 .money-info-card {
     padding: 20px;
     text-align: center;
-    background-color:#0A1428 !important;
+    background-color: #0A1428 !important;
     color: white !important;
 }
 
@@ -200,6 +220,7 @@
     margin-top: 30px;
     background-color: rgba(255, 255, 255, 0.05) !important;
     color: white !important;
+    border-radius: 8px;
 }
 
 /* Responsive adjustments */
@@ -215,15 +236,6 @@
     .position-slot {
         width: 80px;
         height: 100px;
-    }
-
-    .available-players {
-        position: relative;
-        width: 100%;
-        top: 0;
-        right: 0;
-        margin-top: 20px;
-        max-height: 300px;
     }
 
     .position-slot.top {

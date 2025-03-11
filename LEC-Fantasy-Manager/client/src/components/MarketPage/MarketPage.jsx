@@ -42,7 +42,7 @@ const MarketPage = () => {
     { value: 'top', label: 'Top Laner' },
     { value: 'jungle', label: 'Jungler' },
     { value: 'mid', label: 'Mid Laner' },
-    { value: 'adc', label: 'ADC' },
+    { value: 'bottom', label: 'ADC' },
     { value: 'support', label: 'Support' }
   ];
 
@@ -119,7 +119,8 @@ const MarketPage = () => {
 
     try {
       setLoading(true);
-      await playerService.buyPlayer(playerId, selectedLeague._id);
+      // Enviar la posición correcta junto con el ID del jugador
+      await playerService.buyPlayer(playerId, selectedLeague._id, playerToBuy.role);
 
       // Show success message
       setSuccessMessage(`You've signed ${playerToBuy.summonerName || playerToBuy.name} for ${playerToBuy.price}M€!`);

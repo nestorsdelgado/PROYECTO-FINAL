@@ -17,12 +17,28 @@ import {
     TextField,
     Snackbar
 } from '@mui/material';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import useSelectedLeague from '../../hooks/useSelectedLeague';
 import { useNavigate } from 'react-router-dom';
 import playerService from '../../services/players.service';
 import { SportsSoccer, Person, ArrowForward, Error, AttachMoney, SportsEsports, ShoppingCart } from '@mui/icons-material';
 import './TeamPage.css';
+
+
+// Función para normalizar la posición (convierte "bottom" a "adc" para la UI)
+const normalizePosition = (position) => {
+    if (!position) return '';
+    position = position.toLowerCase();
+    if (position === 'bottom') return 'adc';
+    return position;
+};
+
+// Función para desnormalizar la posición (convierte "adc" a "bottom" para la API)
+const denormalizePosition = (position) => {
+    if (!position) return '';
+    position = position.toLowerCase();
+    if (position === 'adc') return 'bottom';
+    return position;
+};
 
 // Helper function to get position color
 const getPositionColor = (position) => {
@@ -30,7 +46,8 @@ const getPositionColor = (position) => {
         top: '#F44336',    // Red
         jungle: '#4CAF50', // Green
         mid: '#2196F3',    // Blue
-        adc: '#FF9800',    // Orange
+        adc: '#FF9800',    // Orange - Usamos 'adc' para UI
+        bottom: '#FF9800', // Mismo color para 'bottom' (por si acaso)
         support: '#9C27B0' // Purple
     };
 
@@ -43,29 +60,12 @@ const getPositionName = (position) => {
         top: 'Top Laner',
         jungle: 'Jungler',
         mid: 'Mid Laner',
-        adc: 'ADC',
+        adc: 'ADC',         // Para UI
+        bottom: 'ADC',      // Para la API
         support: 'Support'
     };
 
     return names[position?.toLowerCase()] || position;
-};
-
-// Helper function to get position icon
-const getPositionIcon = (position) => {
-    switch (position.toLowerCase()) {
-        case 'top':
-            return '🛡️';
-        case 'jungle':
-            return '🌲';
-        case 'mid':
-            return '⚔️';
-        case 'adc':
-            return '🏹';
-        case 'support':
-            return '💊';
-        default:
-            return '❓';
-    }
 };
 
 const TeamPage = () => {
@@ -85,6 +85,9 @@ const TeamPage = () => {
     const [availableMoney, setAvailableMoney] = useState(0);
     const [activeTab, setActiveTab] = useState(0);
     const [successMessage, setSuccessMessage] = useState("");
+
+    // Nueva variable para identificar la posición sobre la que se está arrastrando
+    const [dragOverPosition, setDragOverPosition] = useState(null);
 
     // State for offer dialog
     const [offerDialog, setOfferDialog] = useState({
@@ -112,7 +115,16 @@ const TeamPage = () => {
             try {
                 // Load user's players
                 const players = await playerService.getUserPlayers(selectedLeague._id);
-                setUserPlayers(players);
+                // Normalizar las posiciones de los jugadores para la UI (bottom -> adc)
+                const normalizedPlayers = players.map(player => {
+                    const normalizedRole = normalizePosition(player.role);
+                    return {
+                        ...player,
+                        normalizedRole, // Añadir una propiedad extra para UI
+                    };
+                });
+
+                setUserPlayers(normalizedPlayers);
 
                 // Load current lineup
                 const currentLineup = await playerService.getCurrentLineup(selectedLeague._id);
@@ -122,12 +134,14 @@ const TeamPage = () => {
                     top: null,
                     jungle: null,
                     mid: null,
-                    adc: null,
+                    adc: null, // Usamos 'adc' en la UI
                     support: null
                 };
 
                 currentLineup.forEach(player => {
-                    lineupByPosition[player.position.toLowerCase()] = player;
+                    // Normalizar la posición (bottom -> adc) para la UI
+                    const uiPosition = normalizePosition(player.position?.toLowerCase());
+                    lineupByPosition[uiPosition] = player;
                 });
 
                 setLineup(lineupByPosition);
@@ -155,59 +169,93 @@ const TeamPage = () => {
         setActiveTab(newValue);
     };
 
-    // Handle drag & drop
-    const handleDragEnd = async (result) => {
-        const { source, destination } = result;
+    // Handle drag start
+    const handleDragStart = (e, player) => {
 
-        // Si no hay destino válido, no hacer nada
-        if (!destination) return;
+        // Asegurarnos de convertir el ID a string para evitar problemas
+        const playerId = String(player.id);
 
-        // Si arrastró a la misma posición, no hacer nada
-        if (source.droppableId === destination.droppableId &&
-            source.index === destination.index) {
+        // Normalizar la posición de "bottom" a "adc" para la UI
+        const rawRole = (player.role || '').toLowerCase();
+        const playerRole = normalizePosition(rawRole);
+
+        e.dataTransfer.setData("playerId", playerId);
+        e.dataTransfer.setData("playerRole", playerRole);
+        e.dataTransfer.setData("originalRole", rawRole); // Guardamos la posición original también
+
+        // Añadir una clase al elemento arrastrado para efectos visuales
+        e.currentTarget.classList.add('dragging');
+    };
+
+    // Handle drag over
+    const handleDragOver = (e, position) => {
+        e.preventDefault(); // Necesario para permitir el drop
+        setDragOverPosition(position);
+    };
+
+    // Handle drag leave
+    const handleDragLeave = () => {
+        setDragOverPosition(null);
+    };
+
+    // Handle drop
+    const handleDrop = async (e, position) => {
+        e.preventDefault();
+        setDragOverPosition(null);
+
+        // Obtener datos del jugador arrastrado
+        const playerId = e.dataTransfer.getData("playerId");
+        const playerRole = e.dataTransfer.getData("playerRole");
+        const originalRole = e.dataTransfer.getData("originalRole");
+
+        // Verificar que la posición coincide con el rol del jugador
+        if (playerRole !== position) {
+            setError(`Este jugador es ${getPositionName(playerRole)}, no puede jugar como ${getPositionName(position)}`);
             return;
         }
 
-        // Si arrastró desde la lista de jugadores a una posición
-        if (source.droppableId === 'playersList' &&
-            ['top', 'jungle', 'mid', 'adc', 'support'].includes(destination.droppableId)) {
-
-            const draggedPlayer = userPlayers[source.index];
-            if (!draggedPlayer) {
-                console.error("Player not found at index:", source.index);
+        try {
+            // Buscar el objeto completo del jugador
+            const player = userPlayers.find(p => p.id === playerId);
+            if (!player) {
+                console.error("Player not found:", playerId);
+                setError("Error: Jugador no encontrado. Por favor, intenta de nuevo.");
                 return;
             }
 
-            const playerId = draggedPlayer.id;
-            // Aseguramos que role esté en minúsculas para la comparación
-            const playerRole = (draggedPlayer.role || '').toLowerCase();
+            // Convertir posición UI a posición API
+            const apiPosition = denormalizePosition(position);
 
-            // Verificar que la posición coincide
-            if (playerRole !== destination.droppableId) {
-                setError(`Este jugador es ${getPositionName(playerRole)}, no puede jugar como ${getPositionName(destination.droppableId)}`);
-                return;
-            }
+            // Actualizar en el backend
+            const response = await playerService.setPlayerAsStarter(
+                playerId,
+                selectedLeague._id,
+                apiPosition
+            );
 
-            try {
-                // Actualizar en el backend
-                await playerService.setPlayerAsStarter(
-                    playerId,
-                    selectedLeague._id,
-                    destination.droppableId
-                );
+            // Actualizar localmente
+            setLineup(prev => ({
+                ...prev,
+                [position]: player
+            }));
 
-                // Actualizar localmente - Crear copia completa del jugador
-                setLineup(prev => ({
-                    ...prev,
-                    [destination.droppableId]: { ...draggedPlayer }
-                }));
-
-                setSuccessMessage(`¡${draggedPlayer.summonerName || draggedPlayer.name} establecido como titular!`);
-            } catch (err) {
-                console.error("Error setting player as starter:", err);
-                setError(err.response?.data?.message || "Error al establecer jugador como titular");
+            setSuccessMessage(`¡${player.summonerName || player.name} establecido como titular!`);
+        } catch (err) {
+            console.error("Error setting player as starter:", err);
+            if (err.response && err.response.data) {
+                console.error("API Error details:", err.response.data);
+                setError(err.response.data.message || "Error al establecer jugador como titular");
+            } else {
+                setError("Error de conexión. Por favor, verifica tu conexión a internet e inténtalo de nuevo.");
             }
         }
+    };
+
+    // Handle drag end
+    const handleDragEnd = (e) => {
+        // Limpiar la clase de arrastre
+        e.currentTarget.classList.remove('dragging');
+        setDragOverPosition(null);
     };
 
     // Sell player to market
@@ -317,153 +365,147 @@ const TeamPage = () => {
         setSuccessMessage("");
     };
 
+    // Get player image URL helper
+    const getPlayerImageUrl = (player) => {
+        // Ensure we have a valid image URL
+        if (!player) return 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+
+        if (player.imageUrl && player.imageUrl.startsWith('http')) {
+            return player.imageUrl;
+        } else if (player.image && player.image.startsWith('http')) {
+            return player.image;
+        } else if (player.profilePhotoUrl && player.profilePhotoUrl.startsWith('http')) {
+            return player.profilePhotoUrl;
+        }
+        // Default image URL
+        return 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+    };
+
     // Render lineup tab
     const renderLineupTab = () => {
         return (
-            <DragDropContext onDragEnd={handleDragEnd}>
+            <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+                gap: 2,
+                minHeight: '600px'
+            }}>
+                {/* Field on the left */}
                 <Box sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', md: 'row' },
-                    gap: 2,
-                    minHeight: '600px'
+                    flex: 2,
+                    position: 'relative',
+                    height: { xs: '400px', sm: '500px', md: '600px' }
                 }}>
-                    {/* Campo a la izquierda */}
-                    <Box sx={{
-                        flex: 2,
-                        position: 'relative',
-                        height: { xs: '400px', sm: '500px', md: '600px' }
-                    }}>
-                        <Box className="field-background">
-                            {/* Posiciones en el mapa */}
-                            {Object.keys(lineup).map(position => (
-                                <Droppable key={position} droppableId={position}>
-                                    {(provided, snapshot) => (
-                                        <Box
-                                            ref={provided.innerRef}
-                                            {...provided.droppableProps}
-                                            className={`position-slot ${position} ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
-                                        >
-                                            <Box className="position-icon">
-                                                {getPositionIcon(position)}
-                                            </Box>
+                    <Box className="field-background">
+                        {/* Positions on the map */}
+                        {Object.keys(lineup).map(position => (
+                            <Box
+                                key={position}
+                                className={`position-slot ${position} ${dragOverPosition === position ? 'dragging-over' : ''}`}
+                                onDragOver={(e) => handleDragOver(e, position)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, position)}
+                            >
 
-                                            {lineup[position] ? (
-                                                <Draggable
-                                                    key={lineup[position].id}
-                                                    draggableId={String(lineup[position].id)}
-                                                    index={0}
-                                                >
-                                                    {(provided) => (
-                                                        <Box
-                                                            ref={provided.innerRef}
-                                                            {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
-                                                            className="player-avatar"
-                                                        >
-                                                            <img
-                                                                src={getPlayerImageUrl(lineup[position])}
-                                                                alt={lineup[position].name || lineup[position].summonerName || "Jugador"}
-                                                                onError={(e) => {
-                                                                    e.target.onerror = null;
-                                                                    e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
-                                                                }}
-                                                            />
-                                                            <Typography className="player-name">
-                                                                {lineup[position].summonerName || lineup[position].name || "Jugador"}
-                                                            </Typography>
-                                                        </Box>
-                                                    )}
-                                                </Draggable>
-                                            ) : (
-                                                <Box className="empty-position">
-                                                    <Typography>
-                                                        {`Arrastra un ${getPositionName(position)} aquí`}
-                                                    </Typography>
-                                                </Box>
-                                            )}
-
-                                            {provided.placeholder}
-                                        </Box>
-                                    )}
-                                </Droppable>
-                            ))}
-                        </Box>
-                    </Box>
-
-                    {/* Lista de jugadores disponibles a la derecha */}
-                    <Box sx={{
-                        flex: 1,
-                        minWidth: { xs: '100%', md: '250px' },
-                        maxWidth: { xs: '100%', md: '350px' }
-                    }}>
-                        <Paper sx={{
-                            p: 2,
-                            bgcolor: 'rgba(0, 0, 0, 0.7)',
-                            color: 'white',
-                            height: '100%',
-                            maxHeight: { xs: '350px', md: '600px' },
-                            overflow: 'auto'
-                        }}>
-                            <Typography variant="h6" sx={{ mb: 2 }}>
-                                Jugadores Disponibles
-                            </Typography>
-
-                            <Droppable droppableId="playersList">
-                                {(provided) => (
+                                {lineup[position] ? (
                                     <Box
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
+                                        className="player-avatar"
+                                        draggable
+                                        onDragStart={(e) => {
+                                            // Si arrastramos desde el campo, asegurarnos de que playerRole sea normalizado
+                                            const normalizedRole = normalizePosition(lineup[position].role);
+                                            const playerWithNormalizedRole = {
+                                                ...lineup[position],
+                                                role: normalizedRole
+                                            };
+                                            handleDragStart(e, playerWithNormalizedRole);
+                                        }}
+                                        onDragEnd={handleDragEnd}
                                     >
-                                        {userPlayers.length > 0 ? (
-                                            userPlayers.map((player, index) => (
-                                                <Draggable
-                                                    key={player.id}
-                                                    draggableId={String(player.id)}
-                                                    index={index}
-                                                >
-                                                    {(provided) => (
-                                                        <Box
-                                                            ref={provided.innerRef}
-                                                            {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
-                                                            className="player-list-item"
-                                                            sx={{ mb: 1 }}
-                                                        >
-                                                            <img
-                                                                src={getPlayerImageUrl(player)}
-                                                                alt={player.name || player.summonerName || "Jugador"}
-                                                                className="player-thumbnail"
-                                                                onError={(e) => {
-                                                                    e.target.onerror = null;
-                                                                    e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
-                                                                }}
-                                                            />
-                                                            <Box>
-                                                                <Typography>
-                                                                    {player.summonerName || player.name || "Jugador"}
-                                                                </Typography>
-                                                                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                                                                    {getPositionName(player.role)}
-                                                                </Typography>
-                                                            </Box>
-                                                        </Box>
-                                                    )}
-                                                </Draggable>
-                                            ))
-                                        ) : (
-                                            <Typography>
-                                                No tienes jugadores. Ve al mercado para comprar algunos.
-                                            </Typography>
-                                        )}
-
-                                        {provided.placeholder}
+                                        <img
+                                            src={getPlayerImageUrl(lineup[position])}
+                                            alt={lineup[position].name || lineup[position].summonerName || "Jugador"}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+                                            }}
+                                        />
+                                        <Typography className="player-name">
+                                            {lineup[position].summonerName || lineup[position].name || "Jugador"}
+                                        </Typography>
+                                    </Box>
+                                ) : (
+                                    <Box className="empty-position">
+                                        <Typography>
+                                            {`Arrastra un ${getPositionName(position)} aquí`}
+                                        </Typography>
                                     </Box>
                                 )}
-                            </Droppable>
-                        </Paper>
+                            </Box>
+                        ))}
                     </Box>
                 </Box>
-            </DragDropContext>
+
+                {/* Available players list on the right */}
+                <Box sx={{
+                    flex: 1,
+                    minWidth: { xs: '100%', md: '250px' },
+                    maxWidth: { xs: '100%', md: '350px' }
+                }}>
+                    <Paper sx={{
+                        p: 2,
+                        bgcolor: 'rgba(0, 0, 0, 0.7)',
+                        color: 'white',
+                        height: '100%',
+                        maxHeight: { xs: '350px', md: '600px' },
+                        overflow: 'auto'
+                    }}>
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                            Jugadores Disponibles
+                        </Typography>
+
+                        <Box className="players-list">
+                            {userPlayers.length > 0 ? (
+                                userPlayers.map((player) => (
+                                    <Box
+                                        key={player.id}
+                                        className="player-list-item"
+                                        sx={{
+                                            mb: 1,
+                                            borderLeft: `4px solid ${getPositionColor(player.role)}`
+                                        }}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, player)}
+                                        onDragEnd={handleDragEnd}
+                                    >
+                                        <img
+                                            src={getPlayerImageUrl(player)}
+                                            alt={player.name || player.summonerName || "Jugador"}
+                                            className="player-thumbnail"
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+                                            }}
+                                        />
+                                        <Box>
+                                            <Typography>
+                                                {player.summonerName || player.name || "Jugador"}
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                                                {getPositionName(player.role)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                ))
+                            ) : (
+                                <Typography>
+                                    No tienes jugadores. Ve al mercado para comprar algunos.
+                                </Typography>
+                            )}
+                        </Box>
+                    </Paper>
+                </Box>
+            </Box>
         );
     };
 
@@ -490,7 +532,7 @@ const TeamPage = () => {
                             <Paper className="player-market-card">
                                 <Box className="player-info">
                                     <img
-                                        src={player.imageUrl}
+                                        src={getPlayerImageUrl(player)}
                                         alt={player.name}
                                         className="player-avatar-market"
                                     />
@@ -569,21 +611,6 @@ const TeamPage = () => {
             </Box>
         );
     }
-
-    const getPlayerImageUrl = (player) => {
-        // Asegurarse de que tenemos una URL de imagen válida
-        if (!player) return 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
-
-        if (player.imageUrl && player.imageUrl.startsWith('http')) {
-            return player.imageUrl;
-        } else if (player.image && player.image.startsWith('http')) {
-            return player.image;
-        } else if (player.profilePhotoUrl && player.profilePhotoUrl.startsWith('http')) {
-            return player.profilePhotoUrl;
-        }
-        // URL de imagen por defecto
-        return 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
-    };
 
     return (
         <Box className="team-container">

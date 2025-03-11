@@ -5,11 +5,10 @@ const normalizePlayerData = (player) => {
 
     return {
         ...player, // Mantener todas las propiedades originales
-        // Asegurar que estos campos siempre existan
         id: player.id || '',
         name: player.name || '',
         summonerName: player.summonerName || player.name || '',
-        role: player.role?.toLowerCase() || '',
+        role: player.role?.toLowerCase() || player.position || '',
         team: player.team || '',
         teamName: player.teamName || player.team || '',
         // Normalizar las URLs de imágenes
@@ -46,6 +45,18 @@ class PlayerService {
         }
     }
 
+    // Método auxiliar para obtener un jugador por ID
+    async getPlayerById(playerId) {
+        try {
+            const allPlayers = await this.getAllPlayers();
+            const player = allPlayers.find(p => p.id === playerId);
+            return player ? normalizePlayerData(player) : null;
+        } catch (error) {
+            console.error("Error fetching player by ID:", error);
+            return null;
+        }
+    }
+
     // Get players by position
     async getPlayersByPosition(position) {
         try {
@@ -60,10 +71,21 @@ class PlayerService {
     // Buy a player
     async buyPlayer(playerId, leagueId) {
         try {
+            // Primero obtener la información del jugador para conocer su posición original
+            const allPlayers = await this.getAllPlayers();
+            const playerInfo = allPlayers.find(p => p.id === playerId);
+
+            if (!playerInfo) {
+                throw new Error("No se pudo encontrar información del jugador");
+            }
+
+            // Enviar la posición junto con el ID al servidor
             const response = await api.post("/api/players/buy", {
                 playerId,
-                leagueId
+                leagueId,
+                position: playerInfo.role // Enviar la posición correcta desde la tienda
             });
+
             return response.data;
         } catch (error) {
             console.error("Error buying player:", error);
@@ -79,6 +101,7 @@ class PlayerService {
             return Array.isArray(response.data)
                 ? response.data.map(normalizePlayerData).filter(Boolean)
                 : [];
+
         } catch (error) {
             console.error("Error fetching user players:", error);
             return []; // Retornar array vacío en caso de error
@@ -117,15 +140,38 @@ class PlayerService {
     // Set player as starter
     async setPlayerAsStarter(playerId, leagueId, position, matchday = 1) {
         try {
-            const response = await api.post("/api/players/lineup", {
+
+            // Verificar que los datos son válidos antes de hacer la llamada
+            if (!playerId) {
+                console.error("Invalid playerId:", playerId);
+                throw new Error("El ID del jugador es requerido");
+            }
+
+            if (!leagueId) {
+                console.error("Invalid leagueId:", leagueId);
+                throw new Error("El ID de la liga es requerido");
+            }
+
+            if (!position || !['top', 'jungle', 'mid', 'bottom', 'support'].includes(position.toLowerCase())) {
+                console.error("Invalid position:", position);
+                throw new Error("La posición no es válida");
+            }
+
+            const payload = {
                 playerId,
                 leagueId,
-                position,
-                matchday
-            });
+                position: position.toLowerCase(),
+                matchday: matchday || 1
+            };
+
+            const response = await api.post("/api/players/lineup", payload);
             return response.data;
         } catch (error) {
-            console.error("Error setting player as starter:", error);
+            console.error("Error in setPlayerAsStarter:", error);
+            if (error.response) {
+                console.error("Response error data:", error.response.data);
+                console.error("Response status:", error.response.status);
+            }
             throw error;
         }
     }

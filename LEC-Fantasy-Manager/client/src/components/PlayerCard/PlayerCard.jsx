@@ -22,6 +22,7 @@ const getPositionColor = (position) => {
         jungle: '#4CAF50', // Green
         mid: '#2196F3',    // Blue
         adc: '#FF9800',    // Orange
+        bottom: '#FF9800', // Orange (mismo color que ADC)
         support: '#9C27B0' // Purple
     };
 
@@ -35,6 +36,7 @@ const getPositionName = (position) => {
         jungle: 'Jungler',
         mid: 'Mid Laner',
         adc: 'ADC',
+        bottom: 'ADC', // Mapear "bottom" a "ADC" para consistencia en la visualización
         support: 'Support'
     };
 
@@ -55,6 +57,8 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
         kda: player.kda || (Math.random() * 3 + 2).toFixed(1), // Simulated KDA if not available
         csPerMin: player.csPerMin || (Math.random() * 3 + 7).toFixed(1) // Simulated CS/min
     };
+
+    console.log(`Mostrando jugador: ${adaptedPlayer.name}, posición: ${adaptedPlayer.position}`);
 
     // Check if already have 2 players from same team
     const teamPlayersCount = userPlayers.filter(p => p.team === adaptedPlayer.team).length;

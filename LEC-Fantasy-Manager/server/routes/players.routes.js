@@ -5,9 +5,112 @@ const User = require('../models/user.model');
 const MyLeagues = require('../models/myLeagues.model');
 const auth = require('../middleware/auth');
 require('dotenv').config();
+const LineupPlayer = require('../models/LineupPlayer.model');
+const UserLeague = require('../models/UserLeague.model');
+const PlayerOffer = require('../models/PlayerOffer.model');
 
 const API_KEY = process.env.LOLESPORTS_API_KEY;
 const LEC_ID = "98767991302996019"; // LEC id
+
+// Función auxiliar para obtener información de un jugador
+async function getPlayerInfo(playerId) {
+    try {
+        // Usar el mismo endpoint que usa el router.get('/players')
+        const response = await axios.get("https://esports-api.lolesports.com/persisted/gw/getTeams", {
+            headers: {
+                "x-api-key": API_KEY
+            },
+            params: {
+                hl: "en-US"
+            }
+        });
+
+        const allTeams = response.data.data.teams || [];
+
+        // Filtrar los equipos de la LEC, igual que en router.get('/players')
+        const lecTeams = allTeams.filter(team =>
+            team.homeLeague && team.homeLeague.name === "LEC"
+        );
+
+        // Buscar al jugador con el ID especificado en todos los equipos de la LEC
+        let foundPlayer = null;
+        let playerTeam = null;
+
+        // Recorrer todos los equipos de la LEC buscando al jugador
+        for (const team of lecTeams) {
+            const teamPlayers = team.players || [];
+            const player = teamPlayers.find(p => p.id === playerId);
+
+            if (player) {
+                // Excluir "Ben01" si lo encontramos
+                if (player.summonerName !== "Ben01" && player.name !== "Ben01") {
+                    foundPlayer = player;
+                    playerTeam = team;
+                    break;
+                }
+            }
+        }
+
+        if (!foundPlayer || !playerTeam) {
+            return null;
+        }
+
+        // Añadir precio simulado (igual que en router.get('/players'))
+        const price = Math.floor(Math.random() * 5) + 5; // Precios entre 5 y 10 millones
+
+        // Devolver el jugador con la misma estructura que en router.get('/players')
+        const playerData = {
+            ...foundPlayer,
+            team: playerTeam.code,
+            teamName: playerTeam.name,
+            teamId: playerTeam.id,
+            price: price
+        };
+
+        return playerData;
+    } catch (error) {
+        console.error("Error fetching player info:", error);
+        return null;
+    }
+}
+
+// Función de ayuda para normalizar posiciones
+function normalizePosition(position) {
+    if (!position) return null;
+
+    // Asegurarse de que tenemos un string en minúsculas
+    position = String(position).toLowerCase();
+
+    // Mapa de normalización de posiciones
+    const positionMap = {
+        'adc': 'bottom',
+        'bot': 'bottom',
+        'ad carry': 'bottom',
+        'sup': 'support',
+        'jg': 'jungle',
+        'jung': 'jungle',
+        'm': 'mid',
+        'mid': 'mid',
+        'middle': 'mid',
+        't': 'top',
+        'toplane': 'top'
+    };
+
+    // Devolver la posición normalizada o la original si no hay mapeo
+    return positionMap[position] || position;
+}
+
+// Función de ayuda para verificar si dos posiciones son equivalentes
+function arePositionsEquivalent(position1, position2) {
+    if (!position1 || !position2) return false;
+
+    // Normalizar ambas posiciones
+    const normalized1 = normalizePosition(position1);
+    const normalized2 = normalizePosition(position2);
+
+    // Comparar las posiciones normalizadas
+    return normalized1 === normalized2;
+}
 
 // Modelo esquema para UserPlayer (jugadores comprados por un usuario)
 const userPlayerSchema = new mongoose.Schema({
@@ -186,7 +289,7 @@ router.get('/players/position/:position', async (req, res) => {
 // POST /api/players/buy - Comprar un jugador para la liga seleccionada (requiere autenticación)
 router.post('/players/buy', auth, async (req, res) => {
     try {
-        const { playerId, leagueId } = req.body;
+        const { playerId, leagueId, position } = req.body;
 
         if (!playerId || !leagueId) {
             return res.status(400).json({ message: "Player ID and League ID are required" });
@@ -223,6 +326,10 @@ router.post('/players/buy', auth, async (req, res) => {
         if (!playerInfo) {
             return res.status(404).json({ message: "Player not found" });
         }
+
+        // IMPORTANTE: Priorizar la posición enviada desde el frontend
+        // Esta es la clave para corregir el problema
+        const playerPosition = position || playerInfo.role?.toLowerCase();
 
         // Verificar fondos disponibles
         const userLeague = await UserLeague.findOne({
@@ -270,14 +377,15 @@ router.post('/players/buy', auth, async (req, res) => {
             });
         }
 
-        // Contar jugadores por posición
+        // Contar jugadores por posición - USAR LA POSICIÓN CORRECTA PARA LA VALIDACIÓN
+        // Aquí deberíamos usar playerPosition en lugar de playerInfo.role para ser consistentes
         const positionPlayers = validTeamPlayers.filter(p =>
-            p.role?.toLowerCase() === playerInfo.role?.toLowerCase()
+            p.role?.toLowerCase() === playerPosition?.toLowerCase()
         );
 
         if (positionPlayers.length >= 2) {
             return res.status(400).json({
-                message: `You already have 2 players for the ${playerInfo.role} position. Maximum reached.`
+                message: `You already have 2 players for the ${playerPosition} position. Maximum reached.`
             });
         }
 
@@ -285,7 +393,8 @@ router.post('/players/buy', auth, async (req, res) => {
         const newUserPlayer = new UserPlayer({
             playerId: playerId,
             userId: req.user.id,
-            leagueId: leagueId
+            leagueId: leagueId,
+            position: playerPosition // Guardar la posición correcta
         });
 
         await newUserPlayer.save();
@@ -294,11 +403,18 @@ router.post('/players/buy', auth, async (req, res) => {
         userLeague.money -= playerInfo.price;
         await userLeague.save();
 
+        // Modificar playerInfo para devolver la posición correcta
+        const finalPlayerInfo = {
+            ...playerInfo,
+            role: playerPosition // Asegurar que el objeto devuelto tenga la posición correcta
+        };
+
         res.status(201).json({
             message: "Player purchased successfully",
-            player: playerInfo,
+            player: finalPlayerInfo,
             remainingMoney: userLeague.money
         });
+
     } catch (error) {
         console.error("Error buying player:", error);
         res.status(500).json({ message: "Failed to buy player" });
@@ -339,9 +455,12 @@ router.get('/players/user/:leagueId', auth, async (req, res) => {
         const playerDetails = await Promise.all(
             userPlayers.map(async (userPlayer) => {
                 const playerInfo = await getPlayerInfo(userPlayer.playerId);
+
                 if (playerInfo) {
+                    // IMPORTANTE: Siempre usar la posición almacenada en la base de datos
                     return {
                         ...playerInfo,
+                        role: userPlayer.position || playerInfo.role,  // Priorizar la posición almacenada
                         purchaseDate: userPlayer.purchaseDate
                     };
                 }
@@ -362,7 +481,21 @@ router.get('/players/user/:leagueId', auth, async (req, res) => {
 // Establecer jugador como titular
 router.post('/players/lineup', auth, async (req, res) => {
     try {
-        const { playerId, leagueId, position, matchday } = req.body;
+        const { playerId, leagueId, position, matchday = 1 } = req.body;
+
+        // Normalizar la posición recibida (convertir 'adc' a 'bottom' si es necesario)
+        let normalizedPosition = normalizePosition(position);
+
+        if (!normalizedPosition) {
+            return res.status(400).json({ message: "Position is required" });
+        }
+
+        // Permitir explícitamente tanto 'adc' como 'bottom'
+        const validPositions = ['top', 'jungle', 'mid', 'bottom', 'adc', 'support'];
+        if (!validPositions.includes(position.toLowerCase())) {
+            console.error(`Invalid position: ${position}`);
+            return res.status(400).json({ message: `Position must be one of: ${validPositions.join(', ')}` });
+        }
 
         // Verificar que el usuario posee este jugador
         const userOwnsPlayer = await UserPlayer.findOne({
@@ -372,27 +505,31 @@ router.post('/players/lineup', auth, async (req, res) => {
         });
 
         if (!userOwnsPlayer) {
+            console.error(`User doesn't own player: ${playerId}`);
             return res.status(400).json({ message: "You don't own this player" });
         }
 
         // Obtener información del jugador para verificar posición
         const playerInfo = await getPlayerInfo(playerId);
         if (!playerInfo) {
+            console.error(`Player info not found for: ${playerId}`);
             return res.status(404).json({ message: "Player info not found" });
         }
 
         // Verificar que la posición coincide con la del jugador
-        if (playerInfo.role?.toLowerCase() !== position.toLowerCase()) {
+        if (!arePositionsEquivalent(playerInfo.role, position)) {
+            console.error(`Position mismatch: ${playerInfo.role} vs ${position}`);
             return res.status(400).json({
                 message: `This player is a ${playerInfo.role}, not a ${position}`
             });
         }
 
         // Buscar si ya hay un titular para esa posición
+        const searchPosition = position.toLowerCase() === 'adc' ? 'bottom' : position.toLowerCase();
         const existingLineup = await LineupPlayer.findOne({
             userId: req.user.id,
             leagueId,
-            position,
+            position: searchPosition,
             matchday: matchday || 1
         });
 
@@ -401,12 +538,12 @@ router.post('/players/lineup', auth, async (req, res) => {
             existingLineup.playerId = playerId;
             await existingLineup.save();
         } else {
-            // Crear nuevo jugador titular
+            // Crear nuevo jugador titular - usar la posición original para evitar problemas
             const newLineup = new LineupPlayer({
                 userId: req.user.id,
                 leagueId,
                 playerId,
-                position,
+                position: position.toLowerCase(),
                 matchday: matchday || 1
             });
             await newLineup.save();
@@ -417,7 +554,11 @@ router.post('/players/lineup', auth, async (req, res) => {
         });
     } catch (error) {
         console.error("Error setting player as starter:", error);
-        res.status(500).json({ message: "Failed to set player as starter" });
+        res.status(500).json({
+            message: "Failed to set player as starter",
+            error: error.message,
+            stack: error.stack
+        });
     }
 });
 
@@ -670,16 +811,23 @@ router.get('/user-league/:leagueId', auth, async (req, res) => {
         });
 
         if (!userLeague) {
-            // If no record exists (shouldn't happen), create one with default values
+            // Si no existe el registro (no debería ocurrir), crear uno con el valor por defecto
+
             const newUserLeague = new UserLeague({
                 userId: req.user.id,
                 leagueId,
-                money: 75 // Default initial money
+                money: 75 // Default initial money - explícitamente establecido
             });
 
             await newUserLeague.save();
 
             return res.json(newUserLeague);
+        }
+
+        // Solución de emergencia - si existe el registro pero el dinero es 0, actualizarlo a 75
+        if (userLeague.money === 0) {
+            userLeague.money = 75;
+            await userLeague.save();
         }
 
         res.json(userLeague);
@@ -724,241 +872,305 @@ router.get('/league-users/:leagueId', auth, async (req, res) => {
     }
 });
 
-// POST /api/players/buy - Buy a player for the selected league (requires authentication)
-router.post('/players/buy', auth, async (req, res) => {
+// Get current lineup
+router.get('/players/lineup/:leagueId/:matchday?', auth, async (req, res) => {
+    try {
+        const { leagueId, matchday = 1 } = req.params;
+
+        const lineup = await LineupPlayer.find({
+            userId: req.user.id,
+            leagueId,
+            matchday: parseInt(matchday)
+        });
+
+        // Get detailed info for lineup players
+        const lineupDetails = await Promise.all(
+            lineup.map(async (lineupPlayer) => {
+                const playerInfo = await getPlayerInfo(lineupPlayer.playerId);
+                return {
+                    ...playerInfo,
+                    position: lineupPlayer.position
+                };
+            })
+        );
+
+        res.json(lineupDetails);
+    } catch (error) {
+        console.error("Error fetching lineup:", error);
+        res.status(500).json({ message: "Failed to fetch lineup" });
+    }
+});
+
+// Sell player to market
+router.post('/players/sell/market', auth, async (req, res) => {
     try {
         const { playerId, leagueId } = req.body;
 
-        if (!playerId || !leagueId) {
-            return res.status(400).json({ message: "Player ID and League ID are required" });
-        }
-
-        // Verify the league exists and user is a participant
-        const league = await MyLeagues.findById(leagueId);
-        if (!league) {
-            return res.status(404).json({ message: "League not found" });
-        }
-
-        // Verify user is part of the league
-        const isParticipant = league.participants.some(p =>
-            p.user.toString() === req.user.id
-        );
-
-        if (!isParticipant) {
-            return res.status(403).json({ message: "You are not a participant in this league" });
-        }
-
-        // Verify player isn't already owned by the user in this league
-        const existingPurchase = await UserPlayer.findOne({
-            playerId: playerId,
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        if (existingPurchase) {
-            return res.status(400).json({ message: "You already own this player in this league" });
-        }
-
-        // Get player info to validate
-        const playerInfo = await getPlayerInfo(playerId);
-        if (!playerInfo) {
-            return res.status(404).json({ message: "Player not found" });
-        }
-
-        // Verify user has enough funds
-        const userLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        if (!userLeague) {
-            return res.status(404).json({ message: "User league data not found" });
-        }
-
-        if (userLeague.money < playerInfo.price) {
-            return res.status(400).json({
-                message: `Insufficient funds. You have ${userLeague.money}M€ but the player costs ${playerInfo.price}M€`
-            });
-        }
-
-        // Verify team limit (max 2 players per team)
-        const teamPlayers = await UserPlayer.find({
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        // Verify total player limit (max 10 players)
-        if (teamPlayers.length >= 10) {
-            return res.status(400).json({
-                message: "You already have 10 players. Sell a player before buying a new one."
-            });
-        }
-
-        // Get all player info for team validation
-        const allTeamPlayersInfo = await Promise.all(
-            teamPlayers.map(async (player) => {
-                return await getPlayerInfo(player.playerId);
-            })
-        );
-
-        // Filter null values and count players from the same team
-        const validTeamPlayers = allTeamPlayersInfo.filter(p => p !== null);
-        const sameTeamPlayers = validTeamPlayers.filter(p => p.team === playerInfo.team);
-
-        if (sameTeamPlayers.length >= 2) {
-            return res.status(400).json({
-                message: `You already have 2 players from ${playerInfo.teamName || playerInfo.team}. Maximum reached.`
-            });
-        }
-
-        // Count players by position (max 2 per position)
-        const positionPlayers = validTeamPlayers.filter(p =>
-            p.role?.toLowerCase() === playerInfo.role?.toLowerCase()
-        );
-
-        if (positionPlayers.length >= 2) {
-            return res.status(400).json({
-                message: `You already have 2 players for the ${playerInfo.role} position. Maximum reached.`
-            });
-        }
-
-        // All good, create the purchase
-        const newUserPlayer = new UserPlayer({
-            playerId: playerId,
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        await newUserPlayer.save();
-
-        // Deduct money from user
-        userLeague.money -= playerInfo.price;
-        await userLeague.save();
-
-        res.status(201).json({
-            message: "Player purchased successfully",
-            player: playerInfo,
-            remainingMoney: userLeague.money
-        });
-    } catch (error) {
-        console.error("Error buying player:", error);
-        res.status(500).json({ message: "Failed to buy player" });
-    }
-});
-
-// GET /api/players/user/:leagueId - Get user's players in a specific league
-router.get('/players/user/:leagueId', auth, async (req, res) => {
-    try {
-        const { leagueId } = req.params;
-
-        // Verify league exists
-        const league = await MyLeagues.findById(leagueId);
-        if (!league) {
-            return res.status(404).json({ message: "League not found" });
-        }
-
-        // Verify user is part of the league
-        const isParticipant = league.participants.some(p =>
-            p.user.toString() === req.user.id
-        );
-
-        if (!isParticipant) {
-            return res.status(403).json({ message: "You are not a participant in this league" });
-        }
-
-        // Get players owned by user in this league
-        const userPlayers = await UserPlayer.find({
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        if (!userPlayers.length) {
-            return res.json([]);
-        }
-
-        // Get detailed info for each player
-        const playerDetails = await Promise.all(
-            userPlayers.map(async (userPlayer) => {
-                const playerInfo = await getPlayerInfo(userPlayer.playerId);
-                if (playerInfo) {
-                    return {
-                        ...playerInfo,
-                        purchaseDate: userPlayer.purchaseDate
-                    };
-                }
-                return null;
-            })
-        );
-
-        // Filter null values (players that no longer exist)
-        const validPlayers = playerDetails.filter(p => p !== null);
-
-        res.json(validPlayers);
-    } catch (error) {
-        console.error("Error fetching user's players:", error);
-        res.status(500).json({ message: "Failed to fetch your players" });
-    }
-});
-
-// Set player as starter
-router.post('/players/lineup', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId, position, matchday } = req.body;
-
         // Verify user owns this player
-        const userOwnsPlayer = await UserPlayer.findOne({
+        const userPlayer = await UserPlayer.findOne({
             playerId,
             userId: req.user.id,
             leagueId
         });
 
-        if (!userOwnsPlayer) {
+        if (!userPlayer) {
             return res.status(400).json({ message: "You don't own this player" });
         }
 
-        // Get player info to verify position
+        // Get player info to calculate sell price
         const playerInfo = await getPlayerInfo(playerId);
         if (!playerInfo) {
             return res.status(404).json({ message: "Player info not found" });
         }
 
-        // Verify position matches player's role
-        if (playerInfo.role?.toLowerCase() !== position.toLowerCase()) {
-            return res.status(400).json({
-                message: `This player is a ${playerInfo.role}, not a ${position}`
-            });
-        }
+        // Calculate sell price (1/3 less than original)
+        const sellPrice = Math.round(playerInfo.price * 2 / 3);
 
-        // Check if there's already a starter for this position
-        const existingLineup = await LineupPlayer.findOne({
+        // Remove player from user's collection
+        await UserPlayer.deleteOne({
+            playerId,
             userId: req.user.id,
-            leagueId,
-            position,
-            matchday: matchday || 1
+            leagueId
         });
 
-        if (existingLineup) {
-            // Update the starter
-            existingLineup.playerId = playerId;
-            await existingLineup.save();
-        } else {
-            // Create new starter
-            const newLineup = new LineupPlayer({
-                userId: req.user.id,
-                leagueId,
-                playerId,
-                position,
-                matchday: matchday || 1
-            });
-            await newLineup.save();
+        // Remove from lineup if they were a starter
+        await LineupPlayer.deleteOne({
+            playerId,
+            userId: req.user.id,
+            leagueId
+        });
+
+        // Add money to user
+        const userLeague = await UserLeague.findOne({
+            userId: req.user.id,
+            leagueId
+        });
+
+        if (userLeague) {
+            userLeague.money += sellPrice;
+            await userLeague.save();
         }
 
         res.status(200).json({
-            message: "Player set as starter successfully"
+            message: "Player sold successfully",
+            sellPrice,
+            newBalance: userLeague.money
         });
     } catch (error) {
-        console.error("Error setting player as starter:", error);
-        res.status(500).json({ message: "Failed to set player as starter" });
+        console.error("Error selling player:", error);
+        res.status(500).json({ message: "Failed to sell player" });
+    }
+});
+
+// Create offer to another user
+router.post('/players/sell/offer', auth, async (req, res) => {
+    try {
+        const { playerId, leagueId, targetUserId, price } = req.body;
+
+        // Verify user owns this player
+        const userPlayer = await UserPlayer.findOne({
+            playerId,
+            userId: req.user.id,
+            leagueId
+        });
+
+        if (!userPlayer) {
+            return res.status(400).json({ message: "You don't own this player" });
+        }
+
+        // Verify target user exists and is in the league
+        const targetParticipant = await MyLeagues.findOne({
+            _id: leagueId,
+            'participants.user': targetUserId
+        });
+
+        if (!targetParticipant) {
+            return res.status(400).json({ message: "Target user is not in this league" });
+        }
+
+        // Create new offer
+        const newOffer = new PlayerOffer({
+            playerId,
+            leagueId,
+            sellerUserId: req.user.id,
+            buyerUserId: targetUserId,
+            price,
+            status: 'pending'
+        });
+
+        await newOffer.save();
+
+        res.status(201).json({
+            message: "Offer created successfully",
+            offerId: newOffer._id
+        });
+    } catch (error) {
+        console.error("Error creating offer:", error);
+        res.status(500).json({ message: "Failed to create offer" });
+    }
+});
+
+// GET /api/players/offers/:leagueId - Get pending offers for user in a league
+router.get('/players/offers/:leagueId', auth, async (req, res) => {
+    try {
+        const { leagueId } = req.params;
+
+        // Get offers where user is the buyer
+        const incomingOffers = await PlayerOffer.find({
+            leagueId,
+            buyerUserId: req.user.id,
+            status: 'pending'
+        }).populate('sellerUserId', 'username name');
+
+        // Get offers where user is the seller
+        const outgoingOffers = await PlayerOffer.find({
+            leagueId,
+            sellerUserId: req.user.id,
+            status: 'pending'
+        }).populate('buyerUserId', 'username name');
+
+        // Get detailed info for each player in the offers
+        const processedIncomingOffers = await Promise.all(
+            incomingOffers.map(async (offer) => {
+                const playerInfo = await getPlayerInfo(offer.playerId);
+                return {
+                    ...offer.toObject(),
+                    player: playerInfo
+                };
+            })
+        );
+
+        const processedOutgoingOffers = await Promise.all(
+            outgoingOffers.map(async (offer) => {
+                const playerInfo = await getPlayerInfo(offer.playerId);
+                return {
+                    ...offer.toObject(),
+                    player: playerInfo
+                };
+            })
+        );
+
+        res.json({
+            incoming: processedIncomingOffers,
+            outgoing: processedOutgoingOffers
+        });
+    } catch (error) {
+        console.error("Error fetching offers:", error);
+        res.status(500).json({ message: "Failed to fetch offers" });
+    }
+});
+
+// Accept offer
+router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
+    try {
+        const { offerId } = req.params;
+
+        // Find the offer
+        const offer = await PlayerOffer.findById(offerId);
+
+        if (!offer) {
+            return res.status(404).json({ message: "Offer not found" });
+        }
+
+        // Verify user is the buyer
+        if (offer.buyerUserId.toString() !== req.user.id) {
+            return res.status(403).json({ message: "You are not the buyer of this offer" });
+        }
+
+        // Verify buyer has enough funds
+        const buyerLeague = await UserLeague.findOne({
+            userId: req.user.id,
+            leagueId: offer.leagueId
+        });
+
+        if (!buyerLeague || buyerLeague.money < offer.price) {
+            return res.status(400).json({ message: "Insufficient funds" });
+        }
+
+        // Verify seller still owns the player
+        const sellerPlayer = await UserPlayer.findOne({
+            playerId: offer.playerId,
+            userId: offer.sellerUserId,
+            leagueId: offer.leagueId
+        });
+
+        if (!sellerPlayer) {
+            return res.status(400).json({ message: "Seller no longer owns this player" });
+        }
+
+        // Transfer the player
+        // 1. Remove from seller
+        await UserPlayer.deleteOne({
+            playerId: offer.playerId,
+            userId: offer.sellerUserId,
+            leagueId: offer.leagueId
+        });
+
+        // 2. Assign to buyer
+        const newUserPlayer = new UserPlayer({
+            playerId: offer.playerId,
+            userId: req.user.id,
+            leagueId: offer.leagueId
+        });
+
+        await newUserPlayer.save();
+
+        // 3. Transfer the money
+        // Deduct from buyer
+        buyerLeague.money -= offer.price;
+        await buyerLeague.save();
+
+        // Add to seller
+        const sellerLeague = await UserLeague.findOne({
+            userId: offer.sellerUserId,
+            leagueId: offer.leagueId
+        });
+
+        if (sellerLeague) {
+            sellerLeague.money += offer.price;
+            await sellerLeague.save();
+        }
+
+        // Mark offer as completed
+        offer.status = 'completed';
+        await offer.save();
+
+        res.status(200).json({
+            message: "Transfer completed successfully"
+        });
+    } catch (error) {
+        console.error("Error accepting offer:", error);
+        res.status(500).json({ message: "Failed to accept offer" });
+    }
+});
+
+// Reject offer
+router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
+    try {
+        const { offerId } = req.params;
+
+        // Find the offer
+        const offer = await PlayerOffer.findById(offerId);
+
+        if (!offer) {
+            return res.status(404).json({ message: "Offer not found" });
+        }
+
+        // Verify user is the buyer or seller
+        if (offer.buyerUserId.toString() !== req.user.id && offer.sellerUserId.toString() !== req.user.id) {
+            return res.status(403).json({ message: "You are not part of this offer" });
+        }
+
+        // Mark offer as rejected
+        offer.status = 'rejected';
+        await offer.save();
+
+        res.status(200).json({
+            message: "Offer rejected successfully"
+        });
+    } catch (error) {
+        console.error("Error rejecting offer:", error);
+        res.status(500).json({ message: "Failed to reject offer" });
     }
 });
 
@@ -1264,627 +1476,6 @@ router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
     }
 });
 
-// POST /api/players/buy - Buy a player for the selected league (requires authentication)
-router.post('/players/buy', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId } = req.body;
 
-        if (!playerId || !leagueId) {
-            return res.status(400).json({ message: "Player ID and League ID are required" });
-
-            // Helper function to get player info from LoL Esports API
-            async function getPlayerInfo(playerId) {
-                try {
-                    const response = await axios.get("https://esports-api.lolesports.com/persisted/gw/getTeams", {
-                        headers: {
-                            "x-api-key": API_KEY
-                        },
-                        params: {
-                            hl: "en-US"
-                        }
-                    });
-
-                    const allTeams = response.data.data.teams || [];
-
-                    // Search for the player in all teams
-                    for (const team of allTeams) {
-                        if (team.players) {
-                            const player = team.players.find(p => p.id === playerId);
-                            if (player) {
-                                // Skip "Ben01" player
-                                if (player.summonerName === "Ben01" || player.name === "Ben01") {
-                                    return null;
-                                }
-
-                                // Add price and team info
-                                return {
-                                    ...player,
-                                    team: team.code,
-                                    teamName: team.name,
-                                    teamId: team.id,
-                                    price: Math.floor(Math.random() * 5) + 5 // Prices between 5-10 million
-                                };
-                            }
-                        }
-                    }
-                    return null;
-                } catch (error) {
-                    console.error("Error fetching player info:", error);
-                    return null;
-                }
-            }
-        }
-
-        // Verify the league exists and user is a participant
-        const league = await MyLeagues.findById(leagueId);
-        if (!league) {
-            return res.status(404).json({ message: "League not found" });
-        }
-
-        // Verify user is part of the league
-        const isParticipant = league.participants.some(p =>
-            p.user.toString() === req.user.id
-        );
-
-        if (!isParticipant) {
-            return res.status(403).json({ message: "You are not a participant in this league" });
-        }
-
-        // Verify player isn't already owned by the user in this league
-        const existingPurchase = await UserPlayer.findOne({
-            playerId: playerId,
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        if (existingPurchase) {
-            return res.status(400).json({ message: "You already own this player in this league" });
-        }
-
-        // Get player info to validate
-        const playerInfo = await getPlayerInfo(playerId);
-        if (!playerInfo) {
-            return res.status(404).json({ message: "Player not found" });
-        }
-
-        // Verify user has enough funds
-        const userLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        if (!userLeague) {
-            return res.status(404).json({ message: "User league data not found" });
-        }
-
-        if (userLeague.money < playerInfo.price) {
-            return res.status(400).json({
-                message: `Insufficient funds. You have ${userLeague.money}M€ but the player costs ${playerInfo.price}M€`
-            });
-        }
-
-        // Verify team limit (max 2 players per team)
-        const teamPlayers = await UserPlayer.find({
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        // Verify total player limit (max 10 players)
-        if (teamPlayers.length >= 10) {
-            return res.status(400).json({
-                message: "You already have 10 players. Sell a player before buying a new one."
-            });
-        }
-
-        // Get all player info for team validation
-        const allTeamPlayersInfo = await Promise.all(
-            teamPlayers.map(async (player) => {
-                return await getPlayerInfo(player.playerId);
-            })
-        );
-
-        // Filter null values and count players from the same team
-        const validTeamPlayers = allTeamPlayersInfo.filter(p => p !== null);
-        const sameTeamPlayers = validTeamPlayers.filter(p => p.team === playerInfo.team);
-
-        if (sameTeamPlayers.length >= 2) {
-            return res.status(400).json({
-                message: `You already have 2 players from ${playerInfo.teamName || playerInfo.team}. Maximum reached.`
-            });
-        }
-
-        // Count players by position (max 2 per position)
-        const positionPlayers = validTeamPlayers.filter(p =>
-            p.role?.toLowerCase() === playerInfo.role?.toLowerCase()
-        );
-
-        if (positionPlayers.length >= 2) {
-            return res.status(400).json({
-                message: `You already have 2 players for the ${playerInfo.role} position. Maximum reached.`
-            });
-        }
-
-        // All good, create the purchase
-        const newUserPlayer = new UserPlayer({
-            playerId: playerId,
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        await newUserPlayer.save();
-
-        // Deduct money from user
-        userLeague.money -= playerInfo.price;
-        await userLeague.save();
-
-        res.status(201).json({
-            message: "Player purchased successfully",
-            player: playerInfo,
-            remainingMoney: userLeague.money
-        });
-    } catch (error) {
-        console.error("Error buying player:", error);
-        res.status(500).json({ message: "Failed to buy player" });
-    }
-});
-
-// GET /api/players/user/:leagueId - Get user's players in a specific league
-router.get('/players/user/:leagueId', auth, async (req, res) => {
-    try {
-        const { leagueId } = req.params;
-
-        // Verify league exists
-        const league = await MyLeagues.findById(leagueId);
-        if (!league) {
-            return res.status(404).json({ message: "League not found" });
-        }
-
-        // Verify user is part of the league
-        const isParticipant = league.participants.some(p =>
-            p.user.toString() === req.user.id
-        );
-
-        if (!isParticipant) {
-            return res.status(403).json({ message: "You are not a participant in this league" });
-        }
-
-        // Get players owned by user in this league
-        const userPlayers = await UserPlayer.find({
-            userId: req.user.id,
-            leagueId: leagueId
-        });
-
-        if (!userPlayers.length) {
-            return res.json([]);
-        }
-
-        // Get detailed info for each player
-        const playerDetails = await Promise.all(
-            userPlayers.map(async (userPlayer) => {
-                const playerInfo = await getPlayerInfo(userPlayer.playerId);
-                if (playerInfo) {
-                    return {
-                        ...playerInfo,
-                        purchaseDate: userPlayer.purchaseDate
-                    };
-                }
-                return null;
-            })
-        );
-
-        // Filter null values (players that no longer exist)
-        const validPlayers = playerDetails.filter(p => p !== null);
-
-        res.json(validPlayers);
-    } catch (error) {
-        console.error("Error fetching user's players:", error);
-        res.status(500).json({ message: "Failed to fetch your players" });
-    }
-});
-
-// Set player as starter
-router.post('/players/lineup', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId, position, matchday } = req.body;
-
-        // Verify user owns this player
-        const userOwnsPlayer = await UserPlayer.findOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (!userOwnsPlayer) {
-            return res.status(400).json({ message: "You don't own this player" });
-        }
-
-        // Get player info to verify position
-        const playerInfo = await getPlayerInfo(playerId);
-        if (!playerInfo) {
-            return res.status(404).json({ message: "Player info not found" });
-        }
-
-        // Verify position matches player's role
-        if (playerInfo.role?.toLowerCase() !== position.toLowerCase()) {
-            return res.status(400).json({
-                message: `This player is a ${playerInfo.role}, not a ${position}`
-            });
-        }
-
-        // Check if there's already a starter for this position
-        const existingLineup = await LineupPlayer.findOne({
-            userId: req.user.id,
-            leagueId,
-            position,
-            matchday: matchday || 1
-        });
-
-        if (existingLineup) {
-            // Update the starter
-            existingLineup.playerId = playerId;
-            await existingLineup.save();
-        } else {
-            // Create new starter
-            const newLineup = new LineupPlayer({
-                userId: req.user.id,
-                leagueId,
-                playerId,
-                position,
-                matchday: matchday || 1
-            });
-            await newLineup.save();
-        }
-
-        res.status(200).json({
-            message: "Player set as starter successfully"
-        });
-    } catch (error) {
-        console.error("Error setting player as starter:", error);
-        res.status(500).json({ message: "Failed to set player as starter" });
-    }
-});
-
-// Get current lineup
-router.get('/players/lineup/:leagueId/:matchday?', auth, async (req, res) => {
-    try {
-        const { leagueId, matchday = 1 } = req.params;
-
-        const lineup = await LineupPlayer.find({
-            userId: req.user.id,
-            leagueId,
-            matchday: parseInt(matchday)
-        });
-
-        // Get detailed info for lineup players
-        const lineupDetails = await Promise.all(
-            lineup.map(async (lineupPlayer) => {
-                const playerInfo = await getPlayerInfo(lineupPlayer.playerId);
-                return {
-                    ...playerInfo,
-                    position: lineupPlayer.position
-                };
-            })
-        );
-
-        res.json(lineupDetails);
-    } catch (error) {
-        console.error("Error fetching lineup:", error);
-        res.status(500).json({ message: "Failed to fetch lineup" });
-    }
-});
-
-// Sell player to market
-router.post('/players/sell/market', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId } = req.body;
-
-        // Verify user owns this player
-        const userPlayer = await UserPlayer.findOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (!userPlayer) {
-            return res.status(400).json({ message: "You don't own this player" });
-        }
-
-        // Get player info to calculate sell price
-        const playerInfo = await getPlayerInfo(playerId);
-        if (!playerInfo) {
-            return res.status(404).json({ message: "Player info not found" });
-        }
-
-        // Calculate sell price (1/3 less than original)
-        const sellPrice = Math.round(playerInfo.price * 2 / 3);
-
-        // Remove player from user's collection
-        await UserPlayer.deleteOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        // Remove from lineup if they were a starter
-        await LineupPlayer.deleteOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        // Add money to user
-        const userLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (userLeague) {
-            userLeague.money += sellPrice;
-            await userLeague.save();
-        }
-
-        res.status(200).json({
-            message: "Player sold successfully",
-            sellPrice,
-            newBalance: userLeague.money
-        });
-    } catch (error) {
-        console.error("Error selling player:", error);
-        res.status(500).json({ message: "Failed to sell player" });
-    }
-});
-
-// Create offer to another user
-router.post('/players/sell/offer', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId, targetUserId, price } = req.body;
-
-        // Verify user owns this player
-        const userPlayer = await UserPlayer.findOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (!userPlayer) {
-            return res.status(400).json({ message: "You don't own this player" });
-        }
-
-        // Verify target user exists and is in the league
-        const targetParticipant = await MyLeagues.findOne({
-            _id: leagueId,
-            'participants.user': targetUserId
-        });
-
-        if (!targetParticipant) {
-            return res.status(400).json({ message: "Target user is not in this league" });
-        }
-
-        // Create new offer
-        const newOffer = new PlayerOffer({
-            playerId,
-            leagueId,
-            sellerUserId: req.user.id,
-            buyerUserId: targetUserId,
-            price,
-            status: 'pending'
-        });
-
-        await newOffer.save();
-
-        res.status(201).json({
-            message: "Offer created successfully",
-            offerId: newOffer._id
-        });
-    } catch (error) {
-        console.error("Error creating offer:", error);
-        res.status(500).json({ message: "Failed to create offer" });
-    }
-});
-
-// GET /api/players/offers/:leagueId - Get pending offers for user in a league
-router.get('/players/offers/:leagueId', auth, async (req, res) => {
-    try {
-        const { leagueId } = req.params;
-
-        // Get offers where user is the buyer
-        const incomingOffers = await PlayerOffer.find({
-            leagueId,
-            buyerUserId: req.user.id,
-            status: 'pending'
-        }).populate('sellerUserId', 'username name');
-
-        // Get offers where user is the seller
-        const outgoingOffers = await PlayerOffer.find({
-            leagueId,
-            sellerUserId: req.user.id,
-            status: 'pending'
-        }).populate('buyerUserId', 'username name');
-
-        // Get detailed info for each player in the offers
-        const processedIncomingOffers = await Promise.all(
-            incomingOffers.map(async (offer) => {
-                const playerInfo = await getPlayerInfo(offer.playerId);
-                return {
-                    ...offer.toObject(),
-                    player: playerInfo
-                };
-            })
-        );
-
-        const processedOutgoingOffers = await Promise.all(
-            outgoingOffers.map(async (offer) => {
-                const playerInfo = await getPlayerInfo(offer.playerId);
-                return {
-                    ...offer.toObject(),
-                    player: playerInfo
-                };
-            })
-        );
-
-        res.json({
-            incoming: processedIncomingOffers,
-            outgoing: processedOutgoingOffers
-        });
-    } catch (error) {
-        console.error("Error fetching offers:", error);
-        res.status(500).json({ message: "Failed to fetch offers" });
-    }
-});
-
-// Accept offer
-router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
-    try {
-        const { offerId } = req.params;
-
-        // Find the offer
-        const offer = await PlayerOffer.findById(offerId);
-
-        if (!offer) {
-            return res.status(404).json({ message: "Offer not found" });
-        }
-
-        // Verify user is the buyer
-        if (offer.buyerUserId.toString() !== req.user.id) {
-            return res.status(403).json({ message: "You are not the buyer of this offer" });
-        }
-
-        // Verify buyer has enough funds
-        const buyerLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        if (!buyerLeague || buyerLeague.money < offer.price) {
-            return res.status(400).json({ message: "Insufficient funds" });
-        }
-
-        // Verify seller still owns the player
-        const sellerPlayer = await UserPlayer.findOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (!sellerPlayer) {
-            return res.status(400).json({ message: "Seller no longer owns this player" });
-        }
-
-        // Transfer the player
-        // 1. Remove from seller
-        await UserPlayer.deleteOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        // 2. Assign to buyer
-        const newUserPlayer = new UserPlayer({
-            playerId: offer.playerId,
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        await newUserPlayer.save();
-
-        // 3. Transfer the money
-        // Deduct from buyer
-        buyerLeague.money -= offer.price;
-        await buyerLeague.save();
-
-        // Add to seller
-        const sellerLeague = await UserLeague.findOne({
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (sellerLeague) {
-            sellerLeague.money += offer.price;
-            await sellerLeague.save();
-        }
-
-        // Mark offer as completed
-        offer.status = 'completed';
-        await offer.save();
-
-        res.status(200).json({
-            message: "Transfer completed successfully"
-        });
-    } catch (error) {
-        console.error("Error accepting offer:", error);
-        res.status(500).json({ message: "Failed to accept offer" });
-    }
-});
-
-// Reject offer
-router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
-    try {
-        const { offerId } = req.params;
-
-        // Find the offer
-        const offer = await PlayerOffer.findById(offerId);
-
-        if (!offer) {
-            return res.status(404).json({ message: "Offer not found" });
-        }
-
-        // Verify user is the buyer or seller
-        if (offer.buyerUserId.toString() !== req.user.id && offer.sellerUserId.toString() !== req.user.id) {
-            return res.status(403).json({ message: "You are not part of this offer" });
-        }
-
-        // Mark offer as rejected
-        offer.status = 'rejected';
-        await offer.save();
-
-        res.status(200).json({
-            message: "Offer rejected successfully"
-        });
-    } catch (error) {
-        console.error("Error rejecting offer:", error);
-        res.status(500).json({ message: "Failed to reject offer" });
-    }
-});
-
-// Función auxiliar para obtener información de un jugador
-async function getPlayerInfo(playerId) {
-    try {
-        const response = await axios.get("https://esports-api.lolesports.com/persisted/gw/getTeams", {
-            headers: {
-                "x-api-key": API_KEY
-            },
-            params: {
-                hl: "en-US"
-            }
-        });
-
-        const allTeams = response.data.data.teams || [];
-
-        // Buscar el jugador en todos los equipos
-        for (const team of allTeams) {
-            if (team.players) {
-                const player = team.players.find(p => p.id === playerId);
-                if (player) {
-                    // Verificar que no sea "Ben01"
-                    if (player.summonerName === "Ben01" || player.name === "Ben01") {
-                        return null;
-                    }
-
-                    return {
-                        ...player,
-                        team: team.code,
-                        teamName: team.name,
-                        teamId: team.id,
-                        price: Math.floor(Math.random() * 5) + 5 // Precios entre 5 y 10 millones
-                    };
-                }
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error("Error fetching player info:", error);
-        return null;
-    }
-}
 
 module.exports = router;

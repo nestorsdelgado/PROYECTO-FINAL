@@ -15,6 +15,11 @@ const userPlayerSchema = new mongoose.Schema({
         ref: 'MyLeagues',
         required: true
     },
+    position: {
+        type: String,
+        enum: ['top', 'jungle', 'mid', 'adc', 'support', 'bottom'],
+        required: false
+    },
     purchaseDate: {
         type: Date,
         default: Date.now

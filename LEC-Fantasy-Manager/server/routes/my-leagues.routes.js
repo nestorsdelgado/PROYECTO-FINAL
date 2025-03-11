@@ -34,14 +34,15 @@ router.post('/create', auth, async (req, res) => {
 
         await newLeague.save();
 
-        // Initialize user's money for this league
+        // Initialize user's money for this league - asegurarnos de que money está explícitamente establecido
         const userLeague = new UserLeague({
             userId: req.user.id,
             leagueId: newLeague._id,
-            money: 75 // 75M€ initial funds
+            money: 75 // 75M€ initial funds - explícitamente establecido
         });
 
         await userLeague.save();
+        console.log('Created user league with initial money:', userLeague);
 
         res.status(201).json({
             message: 'League created successfully',
@@ -85,14 +86,15 @@ router.post('/join', auth, async (req, res) => {
         league.participants.push({ user: req.user.id });
         await league.save();
 
-        // Initialize user's money for this league
+        // Initialize user's money for this league - asegurarnos de que money está explícitamente establecido
         const userLeague = new UserLeague({
             userId: req.user.id,
             leagueId: league._id,
-            money: 75 // 75M€ initial funds
+            money: 75 // 75M€ initial funds - explícitamente establecido
         });
 
         await userLeague.save();
+        console.log('Created user league with initial money:', userLeague);
 
         res.status(200).json({
             message: 'Successfully joined the league',
@@ -105,6 +107,10 @@ router.post('/join', auth, async (req, res) => {
         });
     } catch (error) {
         console.error('Error joining league:', error);
+        // Si el error es de clave duplicada (usuario ya tiene registro)
+        if (error.code === 11000 && error.keyPattern && error.keyPattern.userId && error.keyPattern.leagueId) {
+            return res.status(400).json({ message: 'You already have a record in this league' });
+        }
         res.status(500).json({ message: 'Server error' });
     }
 });

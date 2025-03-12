@@ -34,10 +34,19 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
         const fetchOffers = async () => {
             setLoading(true);
             try {
+                console.log("Fetching offers for leagueId:", leagueId);
                 const offersData = await playerService.getPendingOffers(leagueId);
+                console.log("Fetched offers:", offersData);
                 setOffers(offersData);
             } catch (err) {
                 console.error('Error fetching offers:', err);
+
+                // Log more detailed error information
+                if (err.response) {
+                    console.error("Error response:", err.response);
+                    console.error("Error details:", err.response.data);
+                }
+
                 setError('Failed to load offers. Please try again.');
             } finally {
                 setLoading(false);
@@ -51,9 +60,25 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
         setActiveTab(newValue);
     };
 
+    // Handle accepting offer
     const handleAcceptOffer = async (offerId) => {
         try {
-            await playerService.acceptOffer(offerId);
+            console.log("Accepting offer:", offerId);
+
+            // Find the offer with this ID to get player info
+            const offer = offers.incoming.find(o => o._id === offerId);
+            const playerInfo = offer ? offer.player : null;
+
+            // Show loading notification
+            setNotification({
+                open: true,
+                message: 'Processing offer acceptance...',
+                severity: 'info'
+            });
+
+            // Call the API to accept the offer
+            const response = await playerService.acceptOffer(offerId);
+            console.log("Offer accepted response:", response);
 
             // Filter out the accepted offer from the list
             setOffers(prev => ({
@@ -69,20 +94,40 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
             });
 
             // Trigger parent refresh if provided
-            if (onOfferAction) onOfferAction('accept');
+            if (onOfferAction) onOfferAction('accept', playerInfo);
         } catch (err) {
             console.error('Error accepting offer:', err);
+
+            // Log detailed error information for debugging
+            if (err.response) {
+                console.error("Error response:", err.response);
+                console.error("Error details:", err.response.data);
+                console.error("Error status:", err.response.status);
+            }
+
             setNotification({
                 open: true,
-                message: err.response?.data?.message || 'Failed to accept offer.',
+                message: err.response?.data?.message || 'Failed to accept offer. Please try again.',
                 severity: 'error'
             });
         }
     };
 
+    // Handle rejecting offer
     const handleRejectOffer = async (offerId) => {
         try {
-            await playerService.rejectOffer(offerId);
+            console.log("Rejecting offer:", offerId);
+
+            // Show loading notification
+            setNotification({
+                open: true,
+                message: 'Processing rejection...',
+                severity: 'info'
+            });
+
+            // Call the API to reject the offer
+            const response = await playerService.rejectOffer(offerId);
+            console.log("Offer rejected response:", response);
 
             // Filter out the rejected offer from the list
             setOffers(prev => ({
@@ -93,7 +138,7 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
             // Show success notification
             setNotification({
                 open: true,
-                message: 'Offer rejected.',
+                message: 'Offer rejected successfully.',
                 severity: 'info'
             });
 
@@ -101,9 +146,17 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
             if (onOfferAction) onOfferAction('reject');
         } catch (err) {
             console.error('Error rejecting offer:', err);
+
+            // Log detailed error information for debugging
+            if (err.response) {
+                console.error("Error response:", err.response);
+                console.error("Error details:", err.response.data);
+                console.error("Error status:", err.response.status);
+            }
+
             setNotification({
                 open: true,
-                message: err.response?.data?.message || 'Failed to reject offer.',
+                message: err.response?.data?.message || 'Failed to reject offer. Please try again.',
                 severity: 'error'
             });
         }

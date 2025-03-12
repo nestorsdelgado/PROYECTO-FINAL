@@ -99,7 +99,6 @@ const TeamPage = () => {
     const [offersRefreshKey, setOffersRefreshKey] = useState(0);
     const [refreshKey, setRefreshKey] = useState(0);
 
-
     // Nueva variable para identificar la posición sobre la que se está arrastrando
     const [dragOverPosition, setDragOverPosition] = useState(null);
 
@@ -276,46 +275,87 @@ const TeamPage = () => {
     const handleSellToMarket = async (playerId) => {
         try {
             const player = userPlayers.find(p => p.id === playerId);
-            if (!player) return;
+            if (!player) {
+                setError("Player not found");
+                return;
+            }
 
+            // Verificar si hay ofertas pendientes
             const sellPrice = Math.round(player.price * 2 / 3);
 
+            setLoading(true);
             const response = await playerService.sellPlayerToMarket(playerId, selectedLeague._id);
 
-            // Update money
+            // Actualizar dinero localmente
             setAvailableMoney(response.newBalance);
 
-            // Remove player from list
+            // Eliminar jugador de la lista local
             setUserPlayers(prev => prev.filter(p => p.id !== playerId));
 
-            // If player was in lineup, remove them
-            Object.keys(lineup).forEach(position => {
-                if (lineup[position] && lineup[position].id === playerId) {
-                    setLineup(prev => ({
-                        ...prev,
-                        [position]: null
-                    }));
-                }
+            // Si el jugador estaba en la alineación, eliminarlo
+            setLineup(prev => {
+                const newLineup = { ...prev };
+                Object.keys(newLineup).forEach(position => {
+                    if (newLineup[position] && newLineup[position].id === playerId) {
+                        newLineup[position] = null;
+                    }
+                });
+                return newLineup;
             });
 
-            setSuccessMessage(`Player sold for ${sellPrice}M€!`);
+            // Mostrar mensaje de éxito incluyendo información sobre ofertas canceladas
+            let message = `Player sold for ${sellPrice}M€!`;
+            if (response.cancelledOffers && response.cancelledOffers > 0) {
+                message += ` ${response.cancelledOffers} pending offer(s) were cancelled.`;
+            }
+            setSuccessMessage(message);
+
+            // Actualizar los datos de ofertas si estamos en la pestaña de ofertas
+            if (activeTab === 2) {
+                setOffersRefreshKey(prev => prev + 1);
+            }
         } catch (err) {
             console.error("Error selling player:", err);
             setError(err.response?.data?.message || "Error selling player");
+        } finally {
+            setLoading(false);
         }
     };
 
     // Open offer dialog to user
     const handleOfferToUser = (playerId) => {
-        const player = userPlayers.find(p => p.id === playerId);
-        if (!player) return;
+        // First clear any previous errors
+        setError("");
 
+        // Find the player in the user's players
+        const player = userPlayers.find(p => p.id === playerId);
+        if (!player) {
+            console.error("Player not found:", playerId);
+            setError("Player not found. Please try again.");
+            return;
+        }
+
+        console.log("Opening offer dialog for player:", player);
+
+        // Check if there are any users to offer to
+        if (!leagueUsers || leagueUsers.length === 0) {
+            setError("No other users in this league to offer to");
+            return;
+        }
+
+        // Log league users to verify IDs
+        console.log("Available league users:", leagueUsers);
+
+        // Set up the dialog with player information
         setOfferDialog({
             open: true,
-            playerId,
-            price: player.price, // Suggested initial price
-            playerName: player.summonerName || player.name
+            playerId: playerId,
+            price: player.price || 5, // Suggested initial price, fallback to 5 if not defined
+            playerName: player.summonerName || player.name || "Unknown Player"
         });
+
+        // Reset selected user
+        setSelectedUser("");
     };
 
     // Send offer to user
@@ -326,13 +366,37 @@ const TeamPage = () => {
                 return;
             }
 
-            await playerService.createPlayerOffer(
+            if (offerDialog.price <= 0) {
+                setError("Price must be greater than 0");
+                return;
+            }
+
+            // Log the request parameters for debugging
+            console.log("Creating offer with parameters:", {
+                playerId: offerDialog.playerId,
+                leagueId: selectedLeague._id,
+                targetUserId: selectedUser, // This should be the MongoDB ObjectId string
+                price: offerDialog.price
+            });
+
+            // Verify that selectedUser is a valid MongoDB ObjectId
+            if (!/^[0-9a-fA-F]{24}$/.test(selectedUser)) {
+                console.error("Invalid user ID format:", selectedUser);
+                setError("Invalid user ID format. Please select a valid user.");
+                return;
+            }
+
+            // Send the offer to the backend
+            const response = await playerService.createPlayerOffer(
                 offerDialog.playerId,
                 selectedLeague._id,
                 selectedUser,
                 offerDialog.price
             );
 
+            console.log("Offer created successfully:", response);
+
+            // Close the dialog and reset state
             setOfferDialog({
                 open: false,
                 playerId: null,
@@ -341,16 +405,20 @@ const TeamPage = () => {
             });
 
             setSelectedUser("");
-            setSuccessMessage("Offer sent successfully");
+            setSuccessMessage("Offer sent successfully! The other user will be able to accept or reject it.");
 
             // Trigger refresh of offers list
             setOffersRefreshKey(prev => prev + 1);
-
-            // Refresh the player list in case the player was sold
-            setRefreshKey(prevKey => prevKey + 1);
         } catch (err) {
             console.error("Error creating offer:", err);
-            setError(err.response?.data?.message || "Error creating offer");
+
+            // Log detailed error information
+            if (err.response) {
+                console.error("Error response data:", err.response.data);
+                console.error("Error response status:", err.response.status);
+            }
+
+            setError(err.response?.data?.message || "Error creating offer. Please try again.");
         }
     };
 
@@ -386,14 +454,40 @@ const TeamPage = () => {
     };
 
     // Handle offer updates
-    const handleOfferAction = (action) => {
+    const handleOfferAction = (action, playerInfo) => {
         if (action === 'accept') {
+            // Add player to local user players immediately
+            if (playerInfo && playerInfo.id) {
+                // Create a local version of the player for immediate UI update
+                const newPlayerEntry = {
+                    ...playerInfo,
+                    // Add any missing required fields
+                    id: playerInfo.id,
+                    role: playerInfo.role || playerInfo.position,
+                    summonerName: playerInfo.summonerName || playerInfo.name || "Unknown Player",
+                    purchaseDate: new Date()
+                };
+
+                // Add to userPlayers array
+                setUserPlayers(prev => {
+                    // Check if player already exists to avoid duplicates
+                    if (!prev.some(p => p.id === newPlayerEntry.id)) {
+                        return [...prev, newPlayerEntry];
+                    }
+                    return prev;
+                });
+            }
+
             setSuccessMessage("Offer accepted successfully! The player has been added to your team.");
-            // Refresh player data to show newly acquired player
+
+            // Refresh player data
             setRefreshKey(prevKey => prevKey + 1);
         } else if (action === 'reject') {
             setSuccessMessage("Offer rejected.");
         }
+
+        // Always refresh the offers list
+        setOffersRefreshKey(prevKey => prevKey + 1);
     };
 
     // Get player image URL helper
@@ -685,15 +779,7 @@ const TeamPage = () => {
                     {activeTab === 2 && (
                         <PlayerOffers
                             leagueId={selectedLeague._id}
-                            onOfferAction={(action) => {
-                                if (action === 'accept') {
-                                    setSuccessMessage("Offer accepted! The player is now in your team.");
-                                    // Refresh player list when an offer is accepted
-                                    setRefreshKey(prevKey => prevKey + 1);
-                                } else if (action === 'reject') {
-                                    setSuccessMessage("Offer rejected.");
-                                }
-                            }}
+                            onOfferAction={(action, playerInfo) => handleOfferAction(action, playerInfo)}
                             onRefresh={offersRefreshKey}
                         />
                     )}
@@ -709,9 +795,13 @@ const TeamPage = () => {
                     <Box display="flex" alignItems="center" sx={{ mb: 3 }}>
                         {offerDialog.playerId && (
                             <Avatar
-                                src={getPlayerImageUrl({ id: offerDialog.playerId })}
+                                src={offerDialog.playerImage}
                                 alt={offerDialog.playerName}
                                 sx={{ width: 60, height: 60, mr: 2 }}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ryze_0.jpg';
+                                }}
                             />
                         )}
                         <Typography variant="h6">
@@ -729,7 +819,12 @@ const TeamPage = () => {
                             fullWidth
                             label="User"
                             value={selectedUser}
-                            onChange={(e) => setSelectedUser(e.target.value)}
+                            onChange={(e) => {
+                                console.log("Selected user ID:", e.target.value);
+                                setSelectedUser(e.target.value);
+                            }}
+                            error={!selectedUser && error && error.includes("user")}
+                            helperText={!selectedUser && error && error.includes("user") ? "User selection is required" : ""}
                             SelectProps={{
                                 native: true,
                             }}
@@ -742,6 +837,9 @@ const TeamPage = () => {
                                 },
                                 '& .MuiOutlinedInput-notchedOutline': {
                                     borderColor: 'rgba(255, 255, 255, 0.3)',
+                                },
+                                '& .MuiFormHelperText-root': {
+                                    color: '#f44336',
                                 },
                             }}
                         >

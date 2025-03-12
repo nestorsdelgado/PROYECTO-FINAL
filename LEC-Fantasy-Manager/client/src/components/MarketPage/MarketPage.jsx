@@ -38,6 +38,7 @@ const MarketPage = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
   const [availableMoney, setAvailableMoney] = useState(0);
+  const [ownersMap, setOwnersMap] = useState({}); // NEW: Map of playerIds to owner usernames
 
   // Positions for filter - adapted to LoL Esports API
   const positions = [
@@ -73,13 +74,31 @@ const MarketPage = () => {
         // Load user's financial data in this league
         const userLeagueData = await playerService.getUserLeagueData(selectedLeague._id);
 
+        // NEW: Load all player owners in this league
+        const allOwnersData = await playerService.getAllPlayerOwners(selectedLeague._id);
+
+        // Create a map of playerId -> ownerUsername for quick lookup
+        const ownersMap = {};
+        if (allOwnersData && allOwnersData.length > 0) {
+          allOwnersData.forEach(item => {
+            // Only add to the map if it's not owned by the current user
+            if (item.userId.toString() !== userLeagueData.userId.toString()) {
+              ownersMap[item.playerId] = item.ownerUsername;
+            }
+          });
+        }
+
+        console.log("Players owned by others:", ownersMap);
+
         // Set the available money
         setAvailableMoney(userLeagueData.money);
 
+        // Set all data
         setPlayers(allPlayers);
         setFilteredPlayers(allPlayers);
         setTeams(teamsData);
         setUserPlayers(userPlayersData);
+        setOwnersMap(ownersMap); // NEW: Store the owners map
       } catch (err) {
         console.error("Error loading market data:", err);
         setError("Error loading market data. Please try again.");
@@ -125,6 +144,12 @@ const MarketPage = () => {
     const playerToBuy = players.find(p => p.id === playerId);
     if (!playerToBuy) return;
 
+    // Check if player is owned by another user first
+    if (ownersMap[playerId]) {
+      setError(`This player is already owned by ${ownersMap[playerId]}`);
+      return;
+    }
+
     try {
       setLoading(true);
       // Enviar la posición correcta junto con el ID del jugador
@@ -136,8 +161,11 @@ const MarketPage = () => {
       // Refresh data
       setRefreshKey(prev => prev + 1);
 
-      // Update available money
+      // Update available money locally
       setAvailableMoney(prev => prev - playerToBuy.price);
+
+      // Add player to local userPlayers to show as owned immediately
+      setUserPlayers(prev => [...prev, playerToBuy]);
     } catch (err) {
       console.error("Error buying player:", err);
       setError(err.response?.data?.message || "Error buying player.");
@@ -311,6 +339,7 @@ const MarketPage = () => {
                     onBuy={handleBuyPlayer}
                     isOwned={isOwned}
                     userPlayers={userPlayers}
+                    otherOwnersMap={ownersMap} // NEW: Pass the owners map
                   />
                 </Grid>
               );

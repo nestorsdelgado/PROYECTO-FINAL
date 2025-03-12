@@ -7,12 +7,14 @@ import {
     Button,
     Box,
     Chip,
-    Tooltip
+    Tooltip,
+    Avatar
 } from '@mui/material';
 import {
     ShoppingCart,
     CheckCircle,
-    Block
+    Block,
+    Person
 } from '@mui/icons-material';
 
 // Helper function to get position color
@@ -43,7 +45,7 @@ const getPositionName = (position) => {
     return names[position?.toLowerCase()] || position;
 };
 
-const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
+const PlayerCard = ({ player, onBuy, isOwned, userPlayers, otherOwnersMap = {} }) => {
     // Adapt fields from LoL Esports API
     const adaptedPlayer = {
         id: player.id,
@@ -62,7 +64,11 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
     const teamPlayersCount = userPlayers.filter(p => p.team === adaptedPlayer.team).length;
     const maxTeamPlayersReached = teamPlayersCount >= 2 && !isOwned;
 
-    // Button state (purchased, blocked or available)
+    // Check if player is owned by another user
+    const isOwnedByOther = !isOwned && otherOwnersMap[adaptedPlayer.id];
+    const ownerName = isOwnedByOther ? otherOwnersMap[adaptedPlayer.id] : null;
+
+    // Button state (purchased, blocked, owned by other, or available)
     const getButtonState = () => {
         if (isOwned) {
             return {
@@ -70,6 +76,13 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                 color: "success",
                 disabled: true,
                 icon: <CheckCircle />
+            };
+        } else if (isOwnedByOther) {
+            return {
+                text: `Owned by ${ownerName}`,
+                color: "warning",
+                disabled: true,
+                icon: <Person />
             };
         } else if (maxTeamPlayersReached) {
             return {
@@ -97,8 +110,8 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                 flexDirection: 'column',
                 height: '100%',
                 position: 'relative',
-                bgcolor: isOwned ? 'rgba(76, 175, 80, 0.08)' : 'white',
-                border: isOwned ? '1px solid #4caf50' : 'none',
+                bgcolor: isOwned ? 'rgba(76, 175, 80, 0.08)' : (isOwnedByOther ? 'rgba(255, 152, 0, 0.08)' : 'white'),
+                border: isOwned ? '1px solid #4caf50' : (isOwnedByOther ? '1px solid #ff9800' : 'none'),
             }}
         >
             {/* Visual indicator for owned players */}
@@ -107,6 +120,21 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
                     label="Your player"
                     color="success"
                     icon={<CheckCircle />}
+                    sx={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        zIndex: 1
+                    }}
+                />
+            )}
+
+            {/* Visual indicator for players owned by others */}
+            {isOwnedByOther && (
+                <Chip
+                    label={`Owned by ${ownerName}`}
+                    color="warning"
+                    icon={<Person />}
                     sx={{
                         position: 'absolute',
                         top: 10,
@@ -175,11 +203,13 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
             <Box sx={{ p: 2, pt: 0 }}>
                 <Tooltip
                     title={
-                        maxTeamPlayersReached
-                            ? "You already have 2 players from this team"
-                            : isOwned
-                                ? "You already own this player"
-                                : `Price: ${adaptedPlayer.price} million €`
+                        isOwnedByOther
+                            ? `This player is already owned by ${ownerName}`
+                            : maxTeamPlayersReached
+                                ? "You already have 2 players from this team"
+                                : isOwned
+                                    ? "You already own this player"
+                                    : `Price: ${adaptedPlayer.price} million €`
                     }
                 >
                     <span style={{ width: '100%' }}>

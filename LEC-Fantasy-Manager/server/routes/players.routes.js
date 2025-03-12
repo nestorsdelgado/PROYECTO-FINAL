@@ -310,15 +310,23 @@ router.post('/players/buy', auth, async (req, res) => {
             return res.status(403).json({ message: "You are not a participant in this league" });
         }
 
-        // Verificar si el jugador ya está comprado por el usuario en esta liga
+        // Verificar si el jugador ya está comprado por CUALQUIER usuario en esta liga
         const existingPurchase = await UserPlayer.findOne({
             playerId: playerId,
-            userId: req.user.id,
             leagueId: leagueId
         });
 
         if (existingPurchase) {
-            return res.status(400).json({ message: "You already own this player in this league" });
+            if (existingPurchase.userId.toString() === req.user.id) {
+                return res.status(400).json({ message: "You already own this player in this league" });
+            } else {
+                // Obtener el nombre del usuario dueño para un mensaje más informativo
+                const ownerUser = await User.findById(existingPurchase.userId);
+                const ownerName = ownerUser ? ownerUser.username : "another user";
+                return res.status(400).json({
+                    message: `This player is already owned by ${ownerName} in this league`
+                });
+            }
         }
 
         // Obtener información del jugador para validar
@@ -596,7 +604,7 @@ router.post('/players/sell/market', auth, async (req, res) => {
     try {
         const { playerId, leagueId } = req.body;
 
-        // Verificar que el usuario posee este jugador
+        // Verify user owns this player
         const userPlayer = await UserPlayer.findOne({
             playerId,
             userId: req.user.id,
@@ -607,30 +615,53 @@ router.post('/players/sell/market', auth, async (req, res) => {
             return res.status(400).json({ message: "You don't own this player" });
         }
 
-        // Obtener información del jugador para calcular el precio de venta
+        // Get player info to calculate sell price
         const playerInfo = await getPlayerInfo(playerId);
         if (!playerInfo) {
             return res.status(404).json({ message: "Player info not found" });
         }
 
-        // Calcular precio de venta (1/3 menos del original)
+        // Calculate sell price (2/3 of original)
         const sellPrice = Math.round(playerInfo.price * 2 / 3);
 
-        // Eliminar al jugador de la colección de usuarios
+        // First, cancel any pending offers for this player
+        const pendingOffers = await PlayerOffer.find({
+            playerId,
+            leagueId,
+            sellerUserId: req.user.id,
+            status: 'pending'
+        });
+
+        // Mark all pending offers as cancelled
+        if (pendingOffers.length > 0) {
+            await PlayerOffer.updateMany(
+                {
+                    playerId,
+                    leagueId,
+                    sellerUserId: req.user.id,
+                    status: 'pending'
+                },
+                { status: 'cancelled' }
+            );
+
+            console.log(`Cancelled ${pendingOffers.length} pending offers for player ${playerId}`);
+        }
+
+        // Remove player from user's collection
         await UserPlayer.deleteOne({
             playerId,
             userId: req.user.id,
             leagueId
         });
 
-        // Eliminar de la alineación si estaba como titular
+        // Remove from lineup if they were a starter
         await LineupPlayer.deleteOne({
             playerId,
             userId: req.user.id,
             leagueId
         });
 
-        // Añadir dinero al usuario
+        // Add money to user
         const userLeague = await UserLeague.findOne({
             userId: req.user.id,
             leagueId
@@ -644,11 +675,12 @@ router.post('/players/sell/market', auth, async (req, res) => {
         res.status(200).json({
             message: "Player sold successfully",
             sellPrice,
-            newBalance: userLeague.money
+            newBalance: userLeague.money,
+            cancelledOffers: pendingOffers.length
         });
     } catch (error) {
         console.error("Error selling player:", error);
-        res.status(500).json({ message: "Failed to sell player" });
+        res.status(500).json({ message: "Failed to sell player", error: error.message });
     }
 });
 
@@ -862,13 +894,24 @@ router.get('/league-users/:leagueId', auth, async (req, res) => {
             .filter(p => p.user.toString() !== req.user.id)
             .map(p => p.user);
 
-        const users = await User.find({ _id: { $in: userIds } })
-            .select('username name');
+        console.log("User IDs in league:", userIds);
 
-        res.json(users);
+        const users = await User.find({ _id: { $in: userIds } })
+            .select('_id username name');
+
+        console.log("Users found:", users.map(u => ({ id: u._id, username: u.username })));
+
+        // Make sure we're returning the MongoDB _id as 'id' in the response
+        const formattedUsers = users.map(user => ({
+            id: user._id.toString(), // Explicitly convert ObjectId to string
+            username: user.username,
+            name: user.name
+        }));
+
+        res.json(formattedUsers);
     } catch (error) {
         console.error("Error fetching league users:", error);
-        res.status(500).json({ message: "Failed to fetch league users" });
+        res.status(500).json({ message: "Failed to fetch league users", error: error.message });
     }
 });
 
@@ -901,12 +944,28 @@ router.get('/players/lineup/:leagueId/:matchday?', auth, async (req, res) => {
     }
 });
 
-// Sell player to market
-router.post('/players/sell/market', auth, async (req, res) => {
+// Create offer to another user
+router.post('/players/sell/offer', auth, async (req, res) => {
     try {
-        const { playerId, leagueId } = req.body;
+        const { playerId, leagueId, targetUserId, price } = req.body;
 
-        // Verify user owns this player
+        // Log the received data
+        console.log("Received offer data:", {
+            playerId,
+            leagueId,
+            targetUserId,
+            price
+        });
+
+        // Verify that the targetUserId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+            return res.status(400).json({
+                message: "Invalid target user ID format",
+                receivedId: targetUserId
+            });
+        }
+
+        // Verify that the user owns this player
         const userPlayer = await UserPlayer.findOne({
             playerId,
             userId: req.user.id,
@@ -917,48 +976,240 @@ router.post('/players/sell/market', auth, async (req, res) => {
             return res.status(400).json({ message: "You don't own this player" });
         }
 
-        // Get player info to calculate sell price
-        const playerInfo = await getPlayerInfo(playerId);
-        if (!playerInfo) {
-            return res.status(404).json({ message: "Player info not found" });
+        // Verify that the target user exists and is in the league
+        // First, verify the user exists
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) {
+            return res.status(404).json({ message: "Target user not found" });
         }
 
-        // Calculate sell price (1/3 less than original)
-        const sellPrice = Math.round(playerInfo.price * 2 / 3);
-
-        // Remove player from user's collection
-        await UserPlayer.deleteOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
+        // Then, verify they're part of the league
+        const targetParticipant = await MyLeagues.findOne({
+            _id: leagueId,
+            'participants.user': targetUserId
         });
 
-        // Remove from lineup if they were a starter
-        await LineupPlayer.deleteOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        // Add money to user
-        const userLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (userLeague) {
-            userLeague.money += sellPrice;
-            await userLeague.save();
+        if (!targetParticipant) {
+            return res.status(400).json({ message: "Target user is not in this league" });
         }
 
-        res.status(200).json({
-            message: "Player sold successfully",
-            sellPrice,
-            newBalance: userLeague.money
+        // Create new offer
+        const newOffer = new PlayerOffer({
+            playerId,
+            leagueId,
+            sellerUserId: req.user.id,
+            buyerUserId: targetUserId,
+            price: Number(price), // Ensure price is a number
+            status: 'pending'
+        });
+
+        await newOffer.save();
+        console.log("Offer created successfully:", newOffer);
+
+        res.status(201).json({
+            message: "Offer created successfully",
+            offerId: newOffer._id
         });
     } catch (error) {
-        console.error("Error selling player:", error);
-        res.status(500).json({ message: "Failed to sell player" });
+        console.error("Error creating offer:", error);
+        res.status(500).json({
+            message: "Failed to create offer",
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+// GET /api/players/offers/:leagueId - Get pending offers for user in a league
+router.get('/players/offers/:leagueId', auth, async (req, res) => {
+    try {
+        const { leagueId } = req.params;
+
+        // Get offers where user is the buyer
+        const incomingOffers = await PlayerOffer.find({
+            leagueId,
+            buyerUserId: req.user.id,
+            status: 'pending'
+        }).populate('sellerUserId', 'username name');
+
+        // Get offers where user is the seller
+        const outgoingOffers = await PlayerOffer.find({
+            leagueId,
+            sellerUserId: req.user.id,
+            status: 'pending'
+        }).populate('buyerUserId', 'username name');
+
+        // Get detailed info for each player in the offers
+        const processedIncomingOffers = await Promise.all(
+            incomingOffers.map(async (offer) => {
+                const playerInfo = await getPlayerInfo(offer.playerId);
+                return {
+                    ...offer.toObject(),
+                    player: playerInfo
+                };
+            })
+        );
+
+        const processedOutgoingOffers = await Promise.all(
+            outgoingOffers.map(async (offer) => {
+                const playerInfo = await getPlayerInfo(offer.playerId);
+                return {
+                    ...offer.toObject(),
+                    player: playerInfo
+                };
+            })
+        );
+
+        res.json({
+            incoming: processedIncomingOffers,
+            outgoing: processedOutgoingOffers
+        });
+    } catch (error) {
+        console.error("Error fetching offers:", error);
+        res.status(500).json({ message: "Failed to fetch offers" });
+    }
+});
+
+// Accept offer
+router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
+    try {
+        const { offerId } = req.params;
+
+        // Find the offer
+        const offer = await PlayerOffer.findById(offerId);
+
+        if (!offer) {
+            return res.status(404).json({ message: "Offer not found" });
+        }
+
+        // Verify user is the buyer
+        if (offer.buyerUserId.toString() !== req.user.id) {
+            return res.status(403).json({ message: "You are not the buyer of this offer" });
+        }
+
+        // Verify buyer has enough funds
+        const buyerLeague = await UserLeague.findOne({
+            userId: req.user.id,
+            leagueId: offer.leagueId
+        });
+
+        if (!buyerLeague || buyerLeague.money < offer.price) {
+            return res.status(400).json({ message: "Insufficient funds" });
+        }
+
+        // Verify seller still owns the player
+        const sellerPlayer = await UserPlayer.findOne({
+            playerId: offer.playerId,
+            userId: offer.sellerUserId,
+            leagueId: offer.leagueId
+        });
+
+        if (!sellerPlayer) {
+            return res.status(400).json({ message: "Seller no longer owns this player" });
+        }
+
+        // Transfer the player
+        // 1. Remove from seller
+        await UserPlayer.deleteOne({
+            playerId: offer.playerId,
+            userId: offer.sellerUserId,
+            leagueId: offer.leagueId
+        });
+
+        // 2. Assign to buyer
+        const newUserPlayer = new UserPlayer({
+            playerId: offer.playerId,
+            userId: req.user.id,
+            leagueId: offer.leagueId
+        });
+
+        await newUserPlayer.save();
+
+        // 3. Transfer the money
+        // Deduct from buyer
+        buyerLeague.money -= offer.price;
+        await buyerLeague.save();
+
+        // Add to seller
+        const sellerLeague = await UserLeague.findOne({
+            userId: offer.sellerUserId,
+            leagueId: offer.leagueId
+        });
+
+        if (sellerLeague) {
+            sellerLeague.money += offer.price;
+            await sellerLeague.save();
+        }
+
+        // Mark offer as completed
+        offer.status = 'completed';
+        await offer.save();
+
+        res.status(200).json({
+            message: "Transfer completed successfully"
+        });
+    } catch (error) {
+        console.error("Error accepting offer:", error);
+        res.status(500).json({ message: "Failed to accept offer" });
+    }
+});
+
+// Reject offer
+router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
+    try {
+        const { offerId } = req.params;
+
+        // Find the offer
+        const offer = await PlayerOffer.findById(offerId);
+
+        if (!offer) {
+            return res.status(404).json({ message: "Offer not found" });
+        }
+
+        // Verify user is the buyer or seller
+        if (offer.buyerUserId.toString() !== req.user.id && offer.sellerUserId.toString() !== req.user.id) {
+            return res.status(403).json({ message: "You are not part of this offer" });
+        }
+
+        // Mark offer as rejected
+        offer.status = 'rejected';
+        await offer.save();
+
+        res.status(200).json({
+            message: "Offer rejected successfully"
+        });
+    } catch (error) {
+        console.error("Error rejecting offer:", error);
+        res.status(500).json({ message: "Failed to reject offer" });
+    }
+});
+
+// Get current lineup
+router.get('/players/lineup/:leagueId/:matchday?', auth, async (req, res) => {
+    try {
+        const { leagueId, matchday = 1 } = req.params;
+
+        const lineup = await LineupPlayer.find({
+            userId: req.user.id,
+            leagueId,
+            matchday: parseInt(matchday)
+        });
+
+        // Get detailed info for lineup players
+        const lineupDetails = await Promise.all(
+            lineup.map(async (lineupPlayer) => {
+                const playerInfo = await getPlayerInfo(lineupPlayer.playerId);
+                return {
+                    ...playerInfo,
+                    position: lineupPlayer.position
+                };
+            })
+        );
+
+        res.json(lineupDetails);
+    } catch (error) {
+        console.error("Error fetching lineup:", error);
+        res.status(500).json({ message: "Failed to fetch lineup" });
     }
 });
 
@@ -1174,305 +1425,54 @@ router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
     }
 });
 
-// Get current lineup
-router.get('/players/lineup/:leagueId/:matchday?', auth, async (req, res) => {
-    try {
-        const { leagueId, matchday = 1 } = req.params;
-
-        const lineup = await LineupPlayer.find({
-            userId: req.user.id,
-            leagueId,
-            matchday: parseInt(matchday)
-        });
-
-        // Get detailed info for lineup players
-        const lineupDetails = await Promise.all(
-            lineup.map(async (lineupPlayer) => {
-                const playerInfo = await getPlayerInfo(lineupPlayer.playerId);
-                return {
-                    ...playerInfo,
-                    position: lineupPlayer.position
-                };
-            })
-        );
-
-        res.json(lineupDetails);
-    } catch (error) {
-        console.error("Error fetching lineup:", error);
-        res.status(500).json({ message: "Failed to fetch lineup" });
-    }
-});
-
-// Sell player to market
-router.post('/players/sell/market', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId } = req.body;
-
-        // Verify user owns this player
-        const userPlayer = await UserPlayer.findOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (!userPlayer) {
-            return res.status(400).json({ message: "You don't own this player" });
-        }
-
-        // Get player info to calculate sell price
-        const playerInfo = await getPlayerInfo(playerId);
-        if (!playerInfo) {
-            return res.status(404).json({ message: "Player info not found" });
-        }
-
-        // Calculate sell price (1/3 less than original)
-        const sellPrice = Math.round(playerInfo.price * 2 / 3);
-
-        // Remove player from user's collection
-        await UserPlayer.deleteOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        // Remove from lineup if they were a starter
-        await LineupPlayer.deleteOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        // Add money to user
-        const userLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (userLeague) {
-            userLeague.money += sellPrice;
-            await userLeague.save();
-        }
-
-        res.status(200).json({
-            message: "Player sold successfully",
-            sellPrice,
-            newBalance: userLeague.money
-        });
-    } catch (error) {
-        console.error("Error selling player:", error);
-        res.status(500).json({ message: "Failed to sell player" });
-    }
-});
-
-// Create offer to another user
-router.post('/players/sell/offer', auth, async (req, res) => {
-    try {
-        const { playerId, leagueId, targetUserId, price } = req.body;
-
-        // Verify user owns this player
-        const userPlayer = await UserPlayer.findOne({
-            playerId,
-            userId: req.user.id,
-            leagueId
-        });
-
-        if (!userPlayer) {
-            return res.status(400).json({ message: "You don't own this player" });
-        }
-
-        // Verify target user exists and is in the league
-        const targetParticipant = await MyLeagues.findOne({
-            _id: leagueId,
-            'participants.user': targetUserId
-        });
-
-        if (!targetParticipant) {
-            return res.status(400).json({ message: "Target user is not in this league" });
-        }
-
-        // Create new offer
-        const newOffer = new PlayerOffer({
-            playerId,
-            leagueId,
-            sellerUserId: req.user.id,
-            buyerUserId: targetUserId,
-            price,
-            status: 'pending'
-        });
-
-        await newOffer.save();
-
-        res.status(201).json({
-            message: "Offer created successfully",
-            offerId: newOffer._id
-        });
-    } catch (error) {
-        console.error("Error creating offer:", error);
-        res.status(500).json({ message: "Failed to create offer" });
-    }
-});
-
-// GET /api/players/offers/:leagueId - Get pending offers for user in a league
-router.get('/players/offers/:leagueId', auth, async (req, res) => {
+// GET /api/players/owners/:leagueId - Obtener todos los propietarios de jugadores en una liga
+router.get('/players/owners/:leagueId', auth, async (req, res) => {
     try {
         const { leagueId } = req.params;
 
-        // Get offers where user is the buyer
-        const incomingOffers = await PlayerOffer.find({
-            leagueId,
-            buyerUserId: req.user.id,
-            status: 'pending'
-        }).populate('sellerUserId', 'username name');
+        // Verificar que la liga existe
+        const league = await MyLeagues.findById(leagueId);
+        if (!league) {
+            return res.status(404).json({ message: "League not found" });
+        }
 
-        // Get offers where user is the seller
-        const outgoingOffers = await PlayerOffer.find({
-            leagueId,
-            sellerUserId: req.user.id,
-            status: 'pending'
-        }).populate('buyerUserId', 'username name');
-
-        // Get detailed info for each player in the offers
-        const processedIncomingOffers = await Promise.all(
-            incomingOffers.map(async (offer) => {
-                const playerInfo = await getPlayerInfo(offer.playerId);
-                return {
-                    ...offer.toObject(),
-                    player: playerInfo
-                };
-            })
+        // Verificar que el usuario es participante de la liga
+        const isParticipant = league.participants.some(p =>
+            p.user.toString() === req.user.id
         );
 
-        const processedOutgoingOffers = await Promise.all(
-            outgoingOffers.map(async (offer) => {
-                const playerInfo = await getPlayerInfo(offer.playerId);
-                return {
-                    ...offer.toObject(),
-                    player: playerInfo
-                };
-            })
-        );
+        if (!isParticipant) {
+            return res.status(403).json({ message: "You are not a participant in this league" });
+        }
 
-        res.json({
-            incoming: processedIncomingOffers,
-            outgoing: processedOutgoingOffers
+        // Obtener todos los jugadores y sus propietarios
+        const userPlayers = await UserPlayer.find({ leagueId }).lean();
+
+        // Si no hay jugadores adquiridos, devolver array vacío
+        if (!userPlayers.length) {
+            return res.json([]);
+        }
+
+        // Obtener información de los usuarios para incluir nombres
+        const userIds = [...new Set(userPlayers.map(p => p.userId.toString()))];
+        const users = await User.find({ _id: { $in: userIds } }).lean();
+
+        // Crear un mapa de userId -> username para búsqueda rápida
+        const userMap = {};
+        users.forEach(user => {
+            userMap[user._id.toString()] = user.username;
         });
+
+        // Incluir el nombre del propietario en cada registro
+        const result = userPlayers.map(player => ({
+            ...player,
+            ownerUsername: userMap[player.userId.toString()] || 'Unknown User'
+        }));
+
+        res.json(result);
     } catch (error) {
-        console.error("Error fetching offers:", error);
-        res.status(500).json({ message: "Failed to fetch offers" });
-    }
-});
-
-// Accept offer
-router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
-    try {
-        const { offerId } = req.params;
-
-        // Find the offer
-        const offer = await PlayerOffer.findById(offerId);
-
-        if (!offer) {
-            return res.status(404).json({ message: "Offer not found" });
-        }
-
-        // Verify user is the buyer
-        if (offer.buyerUserId.toString() !== req.user.id) {
-            return res.status(403).json({ message: "You are not the buyer of this offer" });
-        }
-
-        // Verify buyer has enough funds
-        const buyerLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        if (!buyerLeague || buyerLeague.money < offer.price) {
-            return res.status(400).json({ message: "Insufficient funds" });
-        }
-
-        // Verify seller still owns the player
-        const sellerPlayer = await UserPlayer.findOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (!sellerPlayer) {
-            return res.status(400).json({ message: "Seller no longer owns this player" });
-        }
-
-        // Transfer the player
-        // 1. Remove from seller
-        await UserPlayer.deleteOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        // 2. Assign to buyer
-        const newUserPlayer = new UserPlayer({
-            playerId: offer.playerId,
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        await newUserPlayer.save();
-
-        // 3. Transfer the money
-        // Deduct from buyer
-        buyerLeague.money -= offer.price;
-        await buyerLeague.save();
-
-        // Add to seller
-        const sellerLeague = await UserLeague.findOne({
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (sellerLeague) {
-            sellerLeague.money += offer.price;
-            await sellerLeague.save();
-        }
-
-        // Mark offer as completed
-        offer.status = 'completed';
-        await offer.save();
-
-        res.status(200).json({
-            message: "Transfer completed successfully"
-        });
-    } catch (error) {
-        console.error("Error accepting offer:", error);
-        res.status(500).json({ message: "Failed to accept offer" });
-    }
-});
-
-// Reject offer
-router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
-    try {
-        const { offerId } = req.params;
-
-        // Find the offer
-        const offer = await PlayerOffer.findById(offerId);
-
-        if (!offer) {
-            return res.status(404).json({ message: "Offer not found" });
-        }
-
-        // Verify user is the buyer or seller
-        if (offer.buyerUserId.toString() !== req.user.id && offer.sellerUserId.toString() !== req.user.id) {
-            return res.status(403).json({ message: "You are not part of this offer" });
-        }
-
-        // Mark offer as rejected
-        offer.status = 'rejected';
-        await offer.save();
-
-        res.status(200).json({
-            message: "Offer rejected successfully"
-        });
-    } catch (error) {
-        console.error("Error rejecting offer:", error);
-        res.status(500).json({ message: "Failed to reject offer" });
+        console.error("Error fetching player owners:", error);
+        res.status(500).json({ message: "Failed to fetch player owners" });
     }
 });
 

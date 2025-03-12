@@ -207,15 +207,29 @@ class PlayerService {
     // Create offer to another user
     async createPlayerOffer(playerId, leagueId, targetUserId, price) {
         try {
+            console.log("Sending offer request with data:", {
+                playerId,
+                leagueId,
+                targetUserId,
+                price: Number(price) // Ensure price is a number
+            });
+
             const response = await api.post("/api/players/sell/offer", {
                 playerId,
                 leagueId,
                 targetUserId,
-                price
+                price: Number(price) // Ensure price is a number
             });
+
+            console.log("Offer response:", response.data);
             return response.data;
         } catch (error) {
             console.error("Error creating player offer:", error);
+            // Log more details about the error for debugging
+            if (error.response) {
+                console.error("Error response data:", error.response.data);
+                console.error("Error response status:", error.response.status);
+            }
             throw error;
         }
     }
@@ -245,10 +259,17 @@ class PlayerService {
     // Reject offer
     async rejectOffer(offerId) {
         try {
+            console.log("Sending reject offer request for offerId:", offerId);
             const response = await api.post(`/api/players/offer/reject/${offerId}`);
+            console.log("Reject offer response:", response.data);
             return response.data;
         } catch (error) {
             console.error("Error rejecting offer:", error);
+            // Log detailed error information
+            if (error.response) {
+                console.error("Error response data:", error.response.data);
+                console.error("Error response status:", error.response.status);
+            }
             throw error;
         }
     }
@@ -272,6 +293,17 @@ class PlayerService {
         } catch (error) {
             console.error("Error checking pending offers:", error);
             return { incoming: 0, outgoing: 0 };
+        }
+    }
+
+    // Get all player owners in a league
+    async getAllPlayerOwners(leagueId) {
+        try {
+            const response = await api.get(`/api/players/owners/${leagueId}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching player owners:", error);
+            return []; // Return empty array in case of error
         }
     }
 

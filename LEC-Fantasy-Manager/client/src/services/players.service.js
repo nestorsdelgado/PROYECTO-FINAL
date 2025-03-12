@@ -264,6 +264,17 @@ class PlayerService {
         }
     }
 
+    // Get pending offers
+    async checkPendingOffers(leagueId) {
+        try {
+            const response = await api.get(`/api/players/offers/${leagueId}/count`);
+            return response.data;
+        } catch (error) {
+            console.error("Error checking pending offers:", error);
+            return { incoming: 0, outgoing: 0 };
+        }
+    }
+
 }
 
 export default new PlayerService();

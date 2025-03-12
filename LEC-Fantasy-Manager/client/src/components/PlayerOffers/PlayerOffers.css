@@ -1,0 +1,92 @@
+.player-offers-container {
+    padding: 20px;
+    background-color: var(--bg-medium);
+    border-radius: 8px;
+}
+
+.offer-card {
+    margin-bottom: 16px;
+    transition: transform 0.2s ease;
+    border-left: 4px solid #1976d2;
+}
+
+.offer-card:hover {
+    transform: translateY(-3px);
+}
+
+.offer-card-incoming {
+    border-left-color: #4caf50;
+}
+
+.offer-card-outgoing {
+    border-left-color: #ff9800;
+}
+
+.offer-header {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+}
+
+.offer-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-right: 16px;
+}
+
+.offer-price {
+    font-weight: bold;
+    color: #4caf50;
+    font-size: 1.2rem;
+}
+
+.offer-details {
+    padding: 0 16px 16px 16px;
+}
+
+.offer-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 16px 16px 16px;
+}
+
+.offer-waiting {
+    display: flex;
+    align-items: center;
+    color: #ff9800;
+    font-style: italic;
+}
+
+.empty-offers-message {
+    text-align: center;
+    padding: 32px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+/* Tabs styling */
+.offers-tabs .MuiTab-root {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.offers-tabs .Mui-selected {
+    color: white;
+}
+
+.offers-tabs .MuiTabs-indicator {
+    background-color: #1976d2;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .offer-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .offer-avatar {
+        width: 40px;
+        height: 40px;
+    }
+}

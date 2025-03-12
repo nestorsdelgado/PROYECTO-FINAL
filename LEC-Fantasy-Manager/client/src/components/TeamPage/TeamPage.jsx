@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+
 import {
     Box,
     Typography,
@@ -15,14 +16,24 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    Snackbar
+    Snackbar,
+    Avatar
 } from '@mui/material';
+import {
+    ShoppingCart,
+    Person,
+    ArrowForward,
+    Error,
+    AttachMoney,
+    SportsEsports,
+    SportsSoccer,
+    Notifications
+} from '@mui/icons-material';
+import PlayerOffers from '../PlayerOffers/PlayerOffers';
 import useSelectedLeague from '../../hooks/useSelectedLeague';
 import { useNavigate } from 'react-router-dom';
 import playerService from '../../services/players.service';
-import { SportsSoccer, Person, ArrowForward, Error, AttachMoney, SportsEsports, ShoppingCart } from '@mui/icons-material';
 import './TeamPage.css';
-
 
 // Función para normalizar la posición (convierte "bottom" a "adc" para la UI)
 const normalizePosition = (position) => {
@@ -85,6 +96,9 @@ const TeamPage = () => {
     const [availableMoney, setAvailableMoney] = useState(0);
     const [activeTab, setActiveTab] = useState(0);
     const [successMessage, setSuccessMessage] = useState("");
+    const [offersRefreshKey, setOffersRefreshKey] = useState(0);
+    const [refreshKey, setRefreshKey] = useState(0);
+
 
     // Nueva variable para identificar la posición sobre la que se está arrastrando
     const [dragOverPosition, setDragOverPosition] = useState(null);
@@ -328,6 +342,12 @@ const TeamPage = () => {
 
             setSelectedUser("");
             setSuccessMessage("Offer sent successfully");
+
+            // Trigger refresh of offers list
+            setOffersRefreshKey(prev => prev + 1);
+
+            // Refresh the player list in case the player was sold
+            setRefreshKey(prevKey => prevKey + 1);
         } catch (err) {
             console.error("Error creating offer:", err);
             setError(err.response?.data?.message || "Error creating offer");
@@ -363,6 +383,17 @@ const TeamPage = () => {
 
     const handleClearSuccess = () => {
         setSuccessMessage("");
+    };
+
+    // Handle offer updates
+    const handleOfferAction = (action) => {
+        if (action === 'accept') {
+            setSuccessMessage("Offer accepted successfully! The player has been added to your team.");
+            // Refresh player data to show newly acquired player
+            setRefreshKey(prevKey => prevKey + 1);
+        } else if (action === 'reject') {
+            setSuccessMessage("Offer rejected.");
+        }
     };
 
     // Get player image URL helper
@@ -515,7 +546,7 @@ const TeamPage = () => {
             <Box className="team-market">
                 <Paper className="money-info-card">
                     <Typography variant="h6">
-                        Available Money
+                        Capital disponible
                     </Typography>
                     <Typography variant="h4">
                         {availableMoney}M€
@@ -544,7 +575,7 @@ const TeamPage = () => {
                                             {player.team} - {getPositionName(player.role)}
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                                            Value: {player.price}M€
+                                            Precio de compra: {player.price}M€
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -557,7 +588,7 @@ const TeamPage = () => {
                                         color="error"
                                         onClick={() => handleSellToMarket(player.id)}
                                     >
-                                        Sell for {Math.round(player.price * 2 / 3)}M€
+                                        Vender por {Math.round(player.price * 2 / 3)}M€
                                     </Button>
 
                                     <Button
@@ -565,7 +596,7 @@ const TeamPage = () => {
                                         color="primary"
                                         onClick={() => handleOfferToUser(player.id)}
                                     >
-                                        Offer to User
+                                        Oferta a otro jugador
                                     </Button>
                                 </Box>
                             </Paper>
@@ -632,50 +663,91 @@ const TeamPage = () => {
                             variant="fullWidth"
                         >
                             <Tab
-                                label="Lineup"
+                                label="Alineación"
                                 icon={<SportsEsports />}
                                 iconPosition="start"
                             />
                             <Tab
-                                label="Market"
+                                label="Mercado"
                                 icon={<AttachMoney />}
+                                iconPosition="start"
+                            />
+                            <Tab
+                                label="Ofertas"
+                                icon={<Notifications />}
                                 iconPosition="start"
                             />
                         </Tabs>
                     </Paper>
 
-                    {activeTab === 0 ? renderLineupTab() : renderMarketTab()}
+                    {activeTab === 0 && renderLineupTab()}
+                    {activeTab === 1 && renderMarketTab()}
+                    {activeTab === 2 && (
+                        <PlayerOffers
+                            leagueId={selectedLeague._id}
+                            onOfferAction={(action) => {
+                                if (action === 'accept') {
+                                    setSuccessMessage("Offer accepted! The player is now in your team.");
+                                    // Refresh player list when an offer is accepted
+                                    setRefreshKey(prevKey => prevKey + 1);
+                                } else if (action === 'reject') {
+                                    setSuccessMessage("Offer rejected.");
+                                }
+                            }}
+                            onRefresh={offersRefreshKey}
+                        />
+                    )}
                 </>
             )}
 
             {/* Offer dialog */}
             <Dialog open={offerDialog.open} onClose={handleCloseOfferDialog}>
-                <DialogTitle>
-                    Ofrecer jugador
+                <DialogTitle sx={{ bgcolor: '#1A2634', color: 'white' }}>
+                    Offer Player to Another User
                 </DialogTitle>
-                <DialogContent>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                        {offerDialog.playerName}
-                    </Typography>
+                <DialogContent sx={{ bgcolor: '#1A2634', color: 'white', pt: 2 }}>
+                    <Box display="flex" alignItems="center" sx={{ mb: 3 }}>
+                        {offerDialog.playerId && (
+                            <Avatar
+                                src={getPlayerImageUrl({ id: offerDialog.playerId })}
+                                alt={offerDialog.playerName}
+                                sx={{ width: 60, height: 60, mr: 2 }}
+                            />
+                        )}
+                        <Typography variant="h6">
+                            {offerDialog.playerName}
+                        </Typography>
+                    </Box>
 
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Seleccionar participante:
+                            Select user to receive this offer:
                         </Typography>
 
                         <TextField
                             select
                             fullWidth
-                            label="Participante"
+                            label="User"
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
                             SelectProps={{
                                 native: true,
                             }}
+                            InputLabelProps={{
+                                style: { color: 'rgba(255, 255, 255, 0.7)' },
+                            }}
+                            sx={{
+                                '& .MuiInputBase-input': {
+                                    color: 'white',
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                                },
+                            }}
                         >
-                            <option value=""></option>
+                            <option value="" style={{ color: "black" }}></option>
                             {leagueUsers.map((user) => (
-                                <option key={user.id} value={user.id} style={{color:"black"}}>
+                                <option key={user.id} value={user.id} style={{ color: "black" }}>
                                     {user.username}
                                 </option>
                             ))}
@@ -684,7 +756,7 @@ const TeamPage = () => {
 
                     <Box>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Sale price (in millions €):
+                            Offer price (in millions €):
                         </Typography>
 
                         <TextField
@@ -693,17 +765,36 @@ const TeamPage = () => {
                             value={offerDialog.price}
                             onChange={handlePriceChange}
                             inputProps={{ min: 1 }}
+                            InputLabelProps={{
+                                style: { color: 'rgba(255, 255, 255, 0.7)' },
+                            }}
+                            sx={{
+                                '& .MuiInputBase-input': {
+                                    color: 'white',
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                                },
+                            }}
                         />
                     </Box>
+
+                    <Typography variant="body2" sx={{ mt: 3, color: 'rgba(255, 255, 255, 0.7)', fontStyle: 'italic' }}>
+                        The selected user will receive this offer and can choose to accept or reject it.
+                    </Typography>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseOfferDialog}>
+                <DialogActions sx={{ bgcolor: '#1A2634', p: 2 }}>
+                    <Button
+                        onClick={handleCloseOfferDialog}
+                        sx={{ color: 'white' }}
+                    >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleSendOffer}
                         variant="contained"
                         color="primary"
+                        disabled={!selectedUser || offerDialog.price <= 0}
                     >
                         Send Offer
                     </Button>

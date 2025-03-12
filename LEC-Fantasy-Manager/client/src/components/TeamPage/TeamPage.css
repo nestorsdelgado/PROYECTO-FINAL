@@ -198,6 +198,7 @@
 .player-info {
     display: flex;
     align-items: center;
+    color: rgba(0, 0, 0, 0.6);
 }
 
 .player-avatar-market {
@@ -303,4 +304,39 @@
 
 .MuiTabs-indicator {
     background-color: #1976d2 !important;
+}
+
+.offer-card {
+    margin-bottom: 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.offer-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+}
+
+.offer-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+    border: 2px solid #1976d2;
+}
+
+.offer-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+}
+
+.offer-status {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+    color: orange;
+    font-style: italic;
 }

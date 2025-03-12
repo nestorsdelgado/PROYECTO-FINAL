@@ -58,8 +58,6 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers }) => {
         csPerMin: player.csPerMin || (Math.random() * 3 + 7).toFixed(1) // Simulated CS/min
     };
 
-    console.log(`Mostrando jugador: ${adaptedPlayer.name}, posición: ${adaptedPlayer.position}`);
-
     // Check if already have 2 players from same team
     const teamPlayersCount = userPlayers.filter(p => p.team === adaptedPlayer.team).length;
     const maxTeamPlayersReached = teamPlayersCount >= 2 && !isOwned;

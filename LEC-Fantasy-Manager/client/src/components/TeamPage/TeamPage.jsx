@@ -351,7 +351,8 @@ const TeamPage = () => {
             open: true,
             playerId: playerId,
             price: player.price || 5, // Suggested initial price, fallback to 5 if not defined
-            playerName: player.summonerName || player.name || "Unknown Player"
+            playerName: player.summonerName || player.name || "Unknown Player",
+            playerImage: getPlayerImageUrl(player) // Add the player image using the helper function
         });
 
         // Reset selected user

@@ -651,7 +651,7 @@ const TeamPage = () => {
             {/* Offer dialog */}
             <Dialog open={offerDialog.open} onClose={handleCloseOfferDialog}>
                 <DialogTitle>
-                    Offer player to another user
+                    Ofrecer jugador
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="h6" sx={{ mb: 2 }}>
@@ -660,22 +660,22 @@ const TeamPage = () => {
 
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Select the user who will receive the offer:
+                            Seleccionar participante:
                         </Typography>
 
                         <TextField
                             select
                             fullWidth
-                            label="User"
+                            label="Participante"
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
                             SelectProps={{
                                 native: true,
                             }}
                         >
-                            <option value="">Select a user</option>
+                            <option value=""></option>
                             {leagueUsers.map((user) => (
-                                <option key={user.id} value={user.id}>
+                                <option key={user.id} value={user.id} style={{color:"black"}}>
                                     {user.username}
                                 </option>
                             ))}

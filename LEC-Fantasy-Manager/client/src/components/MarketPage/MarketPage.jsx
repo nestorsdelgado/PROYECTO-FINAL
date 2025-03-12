@@ -20,6 +20,7 @@ import playerService from '../../services/players.service';
 import PlayerCard from '../PlayerCard/PlayerCard';
 import { useNavigate } from 'react-router-dom';
 import './MarketPage.css';
+import EuroIcon from '@mui/icons-material/Euro';
 
 const MarketPage = () => {
   const { selectedLeague } = useSelectedLeague();
@@ -36,6 +37,7 @@ const MarketPage = () => {
   const [userPlayers, setUserPlayers] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
+  const [availableMoney, setAvailableMoney] = useState(0);
 
   // Positions for filter - adapted to LoL Esports API
   const positions = [
@@ -67,6 +69,12 @@ const MarketPage = () => {
 
         // Load user's players in this league
         const userPlayersData = await playerService.getUserPlayers(selectedLeague._id);
+
+        // Load user's financial data in this league
+        const userLeagueData = await playerService.getUserLeagueData(selectedLeague._id);
+
+        // Set the available money
+        setAvailableMoney(userLeagueData.money);
 
         setPlayers(allPlayers);
         setFilteredPlayers(allPlayers);
@@ -127,6 +135,9 @@ const MarketPage = () => {
 
       // Refresh data
       setRefreshKey(prev => prev + 1);
+
+      // Update available money
+      setAvailableMoney(prev => prev - playerToBuy.price);
     } catch (err) {
       console.error("Error buying player:", err);
       setError(err.response?.data?.message || "Error buying player.");
@@ -245,16 +256,33 @@ const MarketPage = () => {
       </Box>
 
       {/* Team status information */}
-      <Box className="market-team-info">
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          Mi equipo
-        </Typography>
-        <Typography variant="body1">
-          Jugadores en plantilla: {userPlayers.length}/10
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 1 }}>
-          Recuerda: máximo 2 jugadores de cada equipo
-        </Typography>
+      <Box className="market-team-info" sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <Box>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Mi equipo
+          </Typography>
+          <Typography variant="body1">
+            Jugadores en plantilla: {userPlayers.length}/10
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Recuerda: máximo 2 jugadores de cada equipo
+          </Typography>
+        </Box>
+        <Box sx={{
+          textAlign: 'center',
+          bgcolor: 'rgba(0, 0, 0, 0.3)',
+          p: 2,
+          borderRadius: 2,
+          minWidth: '120px'
+        }}>
+          <Typography variant="h4">
+            {availableMoney}M€
+          </Typography>
+        </Box>
       </Box>
 
       {/* Loading state */}

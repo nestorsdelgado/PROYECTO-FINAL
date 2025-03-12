@@ -146,7 +146,7 @@ const MarketPage = () => {
 
     // Check if player is owned by another user first
     if (ownersMap[playerId]) {
-      setError(`This player is already owned by ${ownersMap[playerId]}`);
+      setError(`Este jugador ya pertenece a ${ownersMap[playerId]}`);
       return;
     }
 
@@ -156,7 +156,7 @@ const MarketPage = () => {
       await playerService.buyPlayer(playerId, selectedLeague._id, playerToBuy.role);
 
       // Show success message
-      setSuccessMessage(`You've signed ${playerToBuy.summonerName || playerToBuy.name} for ${playerToBuy.price}M€!`);
+      setSuccessMessage(`Has contratado a ${playerToBuy.summonerName || playerToBuy.name} por ${playerToBuy.price}M€!`);
 
       // Refresh data
       setRefreshKey(prev => prev + 1);
@@ -168,7 +168,7 @@ const MarketPage = () => {
       setUserPlayers(prev => [...prev, playerToBuy]);
     } catch (err) {
       console.error("Error buying player:", err);
-      setError(err.response?.data?.message || "Error buying player.");
+      setError(err.response?.data?.message || "Error comprando jugador.");
     } finally {
       setLoading(false);
     }

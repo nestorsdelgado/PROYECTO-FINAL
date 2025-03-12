@@ -304,7 +304,7 @@ const TeamPage = () => {
             });
 
             // Mostrar mensaje de éxito incluyendo información sobre ofertas canceladas
-            let message = `Player sold for ${sellPrice}M€!`;
+            let message = `Jugador vendido por ${sellPrice}M€!`;
             if (response.cancelledOffers && response.cancelledOffers > 0) {
                 message += ` ${response.cancelledOffers} pending offer(s) were cancelled.`;
             }
@@ -790,7 +790,7 @@ const TeamPage = () => {
             {/* Offer dialog */}
             <Dialog open={offerDialog.open} onClose={handleCloseOfferDialog}>
                 <DialogTitle sx={{ bgcolor: '#1A2634', color: 'white' }}>
-                    Offer Player to Another User
+                    Ofrecer jugador a otro usuario
                 </DialogTitle>
                 <DialogContent sx={{ bgcolor: '#1A2634', color: 'white', pt: 2 }}>
                     <Box display="flex" alignItems="center" sx={{ mb: 3 }}>
@@ -812,13 +812,13 @@ const TeamPage = () => {
 
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Select user to receive this offer:
+                            Selecciona a que usuario quieres ofrecer tu jugador:
                         </Typography>
 
                         <TextField
                             select
                             fullWidth
-                            label="User"
+                            label="Usuario"
                             value={selectedUser}
                             onChange={(e) => {
                                 console.log("Selected user ID:", e.target.value);
@@ -855,7 +855,7 @@ const TeamPage = () => {
 
                     <Box>
                         <Typography variant="body2" sx={{ mb: 1 }}>
-                            Offer price (in millions €):
+                            Precio ofertado (en millones de €):
                         </Typography>
 
                         <TextField
@@ -879,7 +879,7 @@ const TeamPage = () => {
                     </Box>
 
                     <Typography variant="body2" sx={{ mt: 3, color: 'rgba(255, 255, 255, 0.7)', fontStyle: 'italic' }}>
-                        The selected user will receive this offer and can choose to accept or reject it.
+                        El usuario seleccionado recibirá esta oferta y podrá aceptarla o rechazarla.
                     </Typography>
                 </DialogContent>
                 <DialogActions sx={{ bgcolor: '#1A2634', p: 2 }}>
@@ -887,7 +887,7 @@ const TeamPage = () => {
                         onClick={handleCloseOfferDialog}
                         sx={{ color: 'white' }}
                     >
-                        Cancel
+                        Cancelar
                     </Button>
                     <Button
                         onClick={handleSendOffer}
@@ -895,7 +895,7 @@ const TeamPage = () => {
                         color="primary"
                         disabled={!selectedUser || offerDialog.price <= 0}
                     >
-                        Send Offer
+                        Enviar oferta
                     </Button>
                 </DialogActions>
             </Dialog>

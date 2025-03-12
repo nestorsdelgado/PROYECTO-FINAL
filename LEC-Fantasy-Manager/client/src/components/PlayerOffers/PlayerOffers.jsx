@@ -223,12 +223,12 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                 >
                     <Tab
                         icon={<Notifications />}
-                        label={`Incoming (${offers.incoming.length})`}
+                        label={`Entrantes (${offers.incoming.length})`}
                         iconPosition="start"
                     />
                     <Tab
                         icon={<Send />}
-                        label={`Outgoing (${offers.outgoing.length})`}
+                        label={`Salientes (${offers.outgoing.length})`}
                         iconPosition="start"
                     />
                 </Tabs>
@@ -250,7 +250,7 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                             }}
                         >
                             <Typography>
-                                You don't have any incoming offers.
+                                No tienes ninguna oferta entrante.
                             </Typography>
                         </Paper>
                     ) : (
@@ -336,7 +336,7 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                             }}
                         >
                             <Typography>
-                                You haven't sent any offers.
+                                No has enviado ninguna oferta.
                             </Typography>
                         </Paper>
                     ) : (

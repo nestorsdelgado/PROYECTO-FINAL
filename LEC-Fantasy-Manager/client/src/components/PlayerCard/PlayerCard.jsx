@@ -72,28 +72,28 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers, otherOwnersMap = {} }
     const getButtonState = () => {
         if (isOwned) {
             return {
-                text: "Purchased",
+                text: "Comprado",
                 color: "success",
                 disabled: true,
                 icon: <CheckCircle />
             };
         } else if (isOwnedByOther) {
             return {
-                text: `Owned by ${ownerName}`,
+                text: `Pertenece a ${ownerName}`,
                 color: "warning",
                 disabled: true,
                 icon: <Person />
             };
         } else if (maxTeamPlayersReached) {
             return {
-                text: "Team limit",
+                text: "Limite por equipo",
                 color: "error",
                 disabled: true,
                 icon: <Block />
             };
         } else {
             return {
-                text: `Buy (${adaptedPlayer.price}M€)`,
+                text: `Comprar (${adaptedPlayer.price}M€)`,
                 color: "primary",
                 disabled: false,
                 icon: <ShoppingCart />
@@ -117,7 +117,7 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers, otherOwnersMap = {} }
             {/* Visual indicator for owned players */}
             {isOwned && (
                 <Chip
-                    label="Your player"
+                    label="En tu equipo"
                     color="success"
                     icon={<CheckCircle />}
                     sx={{
@@ -132,7 +132,7 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers, otherOwnersMap = {} }
             {/* Visual indicator for players owned by others */}
             {isOwnedByOther && (
                 <Chip
-                    label={`Owned by ${ownerName}`}
+                    label={`Pertenece a ${ownerName}`}
                     color="warning"
                     icon={<Person />}
                     sx={{
@@ -204,12 +204,12 @@ const PlayerCard = ({ player, onBuy, isOwned, userPlayers, otherOwnersMap = {} }
                 <Tooltip
                     title={
                         isOwnedByOther
-                            ? `This player is already owned by ${ownerName}`
+                            ? `Este jugador ya pertenece a ${ownerName}`
                             : maxTeamPlayersReached
-                                ? "You already have 2 players from this team"
+                                ? "Ya tienes 2 jugadores del mismo equipo"
                                 : isOwned
-                                    ? "You already own this player"
-                                    : `Price: ${adaptedPlayer.price} million €`
+                                    ? "Este jugador ya está en tu equipo"
+                                    : `Precio: ${adaptedPlayer.price} millones de €`
                     }
                 >
                     <span style={{ width: '100%' }}>

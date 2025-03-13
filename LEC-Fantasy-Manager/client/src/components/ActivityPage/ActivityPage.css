@@ -1,0 +1,107 @@
+.activity-container {
+    padding: 20px;
+    color: white;
+    overflow-x: hidden;
+    min-height: 91vh;
+    margin-top: 12vh;
+}
+
+.activity-container.no-league {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.activity-filters {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1vh;
+    margin-bottom: 2vh;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.activity-list-item {
+    transition: background-color 0.2s ease;
+}
+
+.activity-list-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.activity-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 16px;
+}
+
+.activity-purchase {
+    background-color: rgba(76, 175, 80, 0.8);
+}
+
+.activity-sale {
+    background-color: rgba(244, 67, 54, 0.8);
+}
+
+.activity-trade {
+    background-color: rgba(255, 152, 0, 0.8);
+}
+
+.activity-player-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.activity-timestamp {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.activity-details {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.activity-price {
+    font-weight: bold;
+    color: #1976d2;
+}
+
+.activity-user {
+    font-weight: bold;
+}
+
+/* Dark theme styles for inputs (match with other pages) */
+.MuiOutlinedInput-root {
+    color: white !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.MuiInputLabel-root {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.MuiSelect-icon {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .activity-filters {
+        flex-direction: column;
+    }
+}

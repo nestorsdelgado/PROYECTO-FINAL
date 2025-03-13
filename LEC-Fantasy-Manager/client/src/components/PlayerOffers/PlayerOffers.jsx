@@ -282,13 +282,13 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                                             secondary={
                                                 <Box sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                                                     <Typography component="span" variant="body2">
-                                                        Offer from: {offer.sellerUserId?.username || 'Another user'}
+                                                        Oferta de: {offer.sellerUserId?.username || 'Another user'}
                                                     </Typography>
                                                     <Typography variant="body2">
-                                                        Price: <strong>{offer.price}M€</strong>
+                                                        Precio: <strong>{offer.price}M€</strong>
                                                     </Typography>
                                                     <Typography variant="body2">
-                                                        Sent: {formatDate(offer.createdAt)}
+                                                        Enviado: {formatDate(offer.createdAt)}
                                                     </Typography>
                                                 </Box>
                                             }
@@ -302,7 +302,7 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                                             startIcon={<CheckCircle />}
                                             onClick={() => handleAcceptOffer(offer._id)}
                                         >
-                                            Accept
+                                            Aceptar
                                         </Button>
                                         <Button
                                             variant="contained"
@@ -310,7 +310,7 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                                             startIcon={<Cancel />}
                                             onClick={() => handleRejectOffer(offer._id)}
                                         >
-                                            Reject
+                                            Rechazar
                                         </Button>
                                     </Box>
                                 </Paper>
@@ -368,13 +368,13 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                                             secondary={
                                                 <Box sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                                                     <Typography component="span" variant="body2">
-                                                        Offer to: {offer.buyerUserId?.username || 'Another user'}
+                                                        Ofrecido a: {offer.buyerUserId?.username || 'Another user'}
                                                     </Typography>
                                                     <Typography variant="body2">
-                                                        Price: <strong>{offer.price}M€</strong>
+                                                        Precio: <strong>{offer.price}M€</strong>
                                                     </Typography>
                                                     <Typography variant="body2">
-                                                        Sent: {formatDate(offer.createdAt)}
+                                                        Enviado: {formatDate(offer.createdAt)}
                                                     </Typography>
                                                     <Typography variant="body2"
                                                         sx={{
@@ -385,7 +385,7 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                                                         }}
                                                     >
                                                         <DoubleArrow sx={{ mr: 1, fontSize: 16 }} />
-                                                        Waiting for response
+                                                        Esperando respuesta
                                                     </Typography>
                                                 </Box>
                                             }

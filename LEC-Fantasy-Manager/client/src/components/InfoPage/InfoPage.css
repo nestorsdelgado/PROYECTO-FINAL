@@ -1,0 +1,71 @@
+.info-page-container {
+    padding: 20px;
+    color: white;
+    overflow-x: hidden;
+    min-height: 91vh;
+    margin-top: 10vh;
+}
+
+.info-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1vh;
+    margin-bottom: 2vh;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.info-filter-item {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Dark theme styles for inputs */
+.MuiOutlinedInput-root {
+    color: white !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.MuiInputLabel-root {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.MuiSelect-icon {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Custom styling for stats cards */
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-progress {
+    height: 8px;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .info-filters {
+        flex-direction: column;
+    }
+}

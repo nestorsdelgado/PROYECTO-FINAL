@@ -7,6 +7,8 @@ import MainContent from './components/MainContent/MainContent';
 import AuthModal from './components/AuthModal/AuthModal';
 import MarketPage from './components/MarketPage/MarketPage';
 import TeamPage from './components/TeamPage/TeamPage';
+import InfoPage from './components/InfoPage/InfoPage';
+import ActivityPage from './components/ActivityPage/ActivityPage';
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -56,14 +58,14 @@ function App() {
           }
         />
         <Route path="/leaderboard" element={<div>Leaderboard Component</div>} />
-        <Route path="/info" element={<div>Info Component</div>} />
+        <Route path="/info" element={<InfoPage />} />
         <Route
           path="/market"
           element={
             <MarketPage />
           }
         />
-        <Route path="/activity" element={<div>Activity Component</div>} />
+        <Route path="/activity" element={<ActivityPage />} />
       </Routes>
     </div>
   );

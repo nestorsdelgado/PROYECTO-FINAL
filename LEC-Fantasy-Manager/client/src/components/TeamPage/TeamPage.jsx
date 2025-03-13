@@ -406,7 +406,7 @@ const TeamPage = () => {
             });
 
             setSelectedUser("");
-            setSuccessMessage("Offer sent successfully! The other user will be able to accept or reject it.");
+            setSuccessMessage("oferta enviada! El usuario podrá aceptarla o rechazarla.");
 
             // Trigger refresh of offers list
             setOffersRefreshKey(prev => prev + 1);

@@ -295,12 +295,100 @@ class PlayerService {
     // Accept offer
     async acceptOffer(offerId) {
         try {
+            console.log("Accepting offer:", offerId);
+
+            // Primero, obtenemos la información de la oferta para registrar la transacción después
+            const offerInfo = await this.getOfferDetails(offerId);
+
+            if (!offerInfo) {
+                throw new Error("No se pudo obtener información de la oferta");
+            }
+
+            console.log("Offer info retrieved:", offerInfo);
+
+            // Llamar a la API para aceptar la oferta
             const response = await api.post(`/api/players/offer/accept/${offerId}`);
+
+            // Registrar la transacción como 'trade'
+            try {
+                // Obtener información del jugador para incluir en la transacción
+                const playerInfo = offerInfo.player || await this.getPlayerById(offerInfo.playerId);
+
+                if (!playerInfo) {
+                    console.error("Could not get player info for transaction");
+                    return response.data;
+                }
+
+                console.log("Registering trade transaction for player:", playerInfo.summonerName || playerInfo.name);
+
+                // Registrar la transacción con todos los detalles necesarios
+                await transactionService.registerTransaction({
+                    type: 'trade',
+                    leagueId: offerInfo.leagueId,
+                    playerId: playerInfo.id || offerInfo.playerId,
+                    playerName: playerInfo.summonerName || playerInfo.name || 'Jugador desconocido',
+                    playerTeam: playerInfo.team || '',
+                    playerPosition: playerInfo.role || '',
+                    price: offerInfo.price,
+                    sellerUserId: offerInfo.sellerUserId?._id || offerInfo.sellerUserId,
+                    buyerUserId: offerInfo.buyerUserId?._id || offerInfo.buyerUserId || this.getCurrentUserId(),
+                    offerId: offerId
+                });
+
+                console.log("Trade transaction registered successfully");
+            } catch (transactionError) {
+                // Solo logueamos el error pero no interrumpimos el flujo principal
+                console.error("Error registering trade transaction:", transactionError);
+            }
 
             return response.data;
         } catch (error) {
             console.error("Error accepting offer:", error);
             throw error;
+        }
+    }
+    
+    // Método auxiliar para obtener detalles de una oferta
+    async getOfferDetails(offerId) {
+        try {
+            // Intentamos obtener la oferta directamente
+            const response = await api.get(`/api/players/offer/${offerId}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error getting offer details:", error);
+
+            // Si no hay un endpoint específico, intentamos buscar en las ofertas pendientes
+            try {
+                // Obtenemos todas las ligas del usuario
+                const userLeagues = await api.get('/api/my-leagues');
+
+                // Para cada liga, buscamos la oferta
+                if (userLeagues.data && userLeagues.data.Ligas) {
+                    for (const league of userLeagues.data.Ligas) {
+                        try {
+                            const offers = await this.getPendingOffers(league._id);
+
+                            // Buscamos en ofertas entrantes
+                            if (offers.incoming) {
+                                const found = offers.incoming.find(o => o._id === offerId);
+                                if (found) return found;
+                            }
+
+                            // Buscamos en ofertas salientes
+                            if (offers.outgoing) {
+                                const found = offers.outgoing.find(o => o._id === offerId);
+                                if (found) return found;
+                            }
+                        } catch (e) {
+                            console.error("Error searching offers in league:", e);
+                        }
+                    }
+                }
+            } catch (searchError) {
+                console.error("Error searching for offer in pending offers:", searchError);
+            }
+
+            return null;
         }
     }
 

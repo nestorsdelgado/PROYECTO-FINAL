@@ -69,6 +69,16 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
             const offer = offers.incoming.find(o => o._id === offerId);
             const playerInfo = offer ? offer.player : null;
 
+            if (!offer) {
+                console.error("Offer not found in state:", offerId);
+                setNotification({
+                    open: true,
+                    message: 'Error: Offer not found',
+                    severity: 'error'
+                });
+                return;
+            }
+
             // Show loading notification
             setNotification({
                 open: true,
@@ -86,15 +96,15 @@ const PlayerOffers = ({ leagueId, onOfferAction, onRefresh }) => {
                 incoming: prev.incoming.filter(offer => offer._id !== offerId)
             }));
 
-            // Show success notification
-            setNotification({
-                open: true,
-                message: 'Offer accepted! Player has been added to your team.',
-                severity: 'success'
-            });
+            // IMPORTANT: The transaction should be automatically registered on the server
+            // We don't need to manually register it here, but we need to make sure we trigger
+            // updates in relevant components
 
-            // Trigger parent refresh if provided
-            if (onOfferAction) onOfferAction('accept', playerInfo);
+            // Trigger parent refresh if provided to update interface elements
+            if (onOfferAction) {
+                // Pass player info to update UI immediately without waiting for API refresh
+                onOfferAction('accept', playerInfo);
+            }
         } catch (err) {
             console.error('Error accepting offer:', err);
 

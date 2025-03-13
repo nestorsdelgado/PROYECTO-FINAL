@@ -56,6 +56,41 @@ const getPositionColor = (position) => {
     return colors[position.toLowerCase()] || '#757575';
 };
 
+// Función para obtener una etiqueta legible según el tipo de transacción
+const getTransactionTypeLabel = (type) => {
+    switch (type) {
+        case 'purchase':
+            return 'Compra del mercado';
+        case 'sale':
+            return 'Venta al mercado';
+        case 'trade':
+            return 'Intercambio entre usuarios';
+        default:
+            return 'Transacción';
+    }
+};
+
+// Función de utilidad para transformar la transacción en un formato coherente
+const normalizeTransaction = (transaction) => {
+    // Valores por defecto para evitar errores
+    return {
+        id: transaction.id || transaction._id,
+        type: transaction.type || 'unknown',
+        typeLabel: getTransactionTypeLabel(transaction.type),
+        playerId: transaction.playerId,
+        playerName: transaction.playerName || 'Jugador desconocido',
+        playerTeam: transaction.playerTeam || '',
+        playerPosition: transaction.playerPosition || '',
+        price: transaction.price || 0,
+        timestamp: new Date(transaction.timestamp || transaction.createdAt),
+        username: transaction.username || transaction.userId?.username,
+        sellerUserId: transaction.sellerUserId?._id || transaction.sellerUserId,
+        sellerUsername: transaction.sellerUsername || transaction.sellerUserId?.username || 'Usuario',
+        buyerUserId: transaction.buyerUserId?._id || transaction.buyerUserId,
+        buyerUsername: transaction.buyerUsername || transaction.buyerUserId?.username || 'Usuario'
+    };
+};
+
 // Componente principal de Activity Page
 const ActivityPage = () => {
     const { selectedLeague } = useSelectedLeague();
@@ -84,27 +119,22 @@ const ActivityPage = () => {
 
             try {
                 // Llamar al servicio para obtener los datos
+                console.log("Fetching transactions for league:", selectedLeague._id);
                 const data = await transactionService.getTransactionHistory(selectedLeague._id);
-                console.log("Transacciones recibidas:", data?.length || 0);
+                console.log("Transacciones recibidas:", data?.length || 0, data);
 
                 if (Array.isArray(data)) {
                     // Normalizar los datos para facilitar su procesamiento
-                    const normalizedData = data.map(transaction => ({
-                        id: transaction.id || transaction._id,
-                        type: transaction.type || 'unknown',
-                        typeLabel: getTransactionTypeLabel(transaction.type),
-                        playerId: transaction.playerId,
-                        playerName: transaction.playerName || 'Jugador desconocido',
-                        playerTeam: transaction.playerTeam || '',
-                        playerPosition: transaction.playerPosition || '',
-                        price: transaction.price || 0,
-                        timestamp: new Date(transaction.timestamp || transaction.createdAt),
-                        username: transaction.username || transaction.userId?.username,
-                        sellerUserId: transaction.sellerUserId?._id || transaction.sellerUserId,
-                        sellerUsername: transaction.sellerUsername || transaction.sellerUserId?.username || 'Usuario',
-                        buyerUserId: transaction.buyerUserId?._id || transaction.buyerUserId,
-                        buyerUsername: transaction.buyerUsername || transaction.buyerUserId?.username || 'Usuario'
-                    }));
+                    const normalizedData = data.map(transaction => normalizeTransaction(transaction));
+
+                    // Log para depuración - contar transacciones por tipo
+                    const counts = {
+                        purchase: normalizedData.filter(t => t.type === 'purchase').length,
+                        sale: normalizedData.filter(t => t.type === 'sale').length,
+                        trade: normalizedData.filter(t => t.type === 'trade').length,
+                        total: normalizedData.length
+                    };
+                    console.log("Transactions by type:", counts);
 
                     setTransactions(normalizedData);
                     setFilteredTransactions(normalizedData);
@@ -135,17 +165,40 @@ const ActivityPage = () => {
         return () => clearInterval(intervalId);
     }, [selectedLeague, refreshKey]);
 
-    // Función para obtener una etiqueta legible según el tipo de transacción
-    const getTransactionTypeLabel = (type) => {
-        switch (type) {
+    // Mejorar la visualización de las transacciones de intercambio
+    const renderTransactionDetails = (transaction) => {
+        switch (transaction.type) {
             case 'purchase':
-                return 'Compra del mercado';
+                return (
+                    <Typography variant="body2">
+                        {transaction.username} compró este jugador del mercado.
+                    </Typography>
+                );
             case 'sale':
-                return 'Venta al mercado';
+                return (
+                    <Typography variant="body2">
+                        {transaction.username} vendió este jugador al mercado.
+                    </Typography>
+                );
             case 'trade':
-                return 'Intercambio entre usuarios';
+                return (
+                    <>
+                        <Typography variant="body2">
+                            Intercambio directo entre usuarios por {transaction.price}M€.
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                {transaction.sellerUsername || "Vendedor"}
+                            </Typography>
+                            <ArrowForward sx={{ mx: 1, fontSize: 16 }} />
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                {transaction.buyerUsername || "Comprador"}
+                            </Typography>
+                        </Box>
+                    </>
+                );
             default:
-                return 'Transacción';
+                return null;
         }
     };
 
@@ -432,7 +485,7 @@ const ActivityPage = () => {
                                                             <>Venta de {transaction.playerName}</>
                                                         )}
                                                         {transaction.type === 'trade' && (
-                                                            <>{transaction.sellerUsername} vendió {transaction.playerName} a {transaction.buyerUsername}</>
+                                                            <>Intercambio: {transaction.sellerUsername} vendió {transaction.playerName} a {transaction.buyerUsername}</>
                                                         )}
                                                     </Typography>
                                                     <Typography variant="body2" color="text.secondary">
@@ -449,7 +502,7 @@ const ActivityPage = () => {
                                                                 label={transaction.playerTeam}
                                                                 size="small"
                                                                 variant="outlined"
-                                                                sx={{ borderColor: 'rgba(255, 255, 255, 0.3)' }}
+                                                                sx={{ borderColor: 'rgba(255, 255, 255, 0.3)', color:'white' }}
                                                             />
                                                         )}
 
@@ -480,32 +533,12 @@ const ActivityPage = () => {
                                                             label={transaction.typeLabel}
                                                             size="small"
                                                             variant="outlined"
-                                                            sx={{ borderColor: 'rgba(255, 255, 255, 0.3)' }}
+                                                            sx={{ borderColor: 'rgba(255, 255, 255, 0.3)', color:'white' }}
                                                         />
                                                     </Box>
 
                                                     {/* Detalles adicionales según tipo */}
-                                                    {transaction.type === 'purchase' && (
-                                                        <Typography variant="body2">
-                                                            {transaction.username} compró este jugador del mercado.
-                                                        </Typography>
-                                                    )}
-                                                    {transaction.type === 'sale' && (
-                                                        <Typography variant="body2">
-                                                            {transaction.username} vendió este jugador al mercado.
-                                                        </Typography>
-                                                    )}
-                                                    {transaction.type === 'trade' && (
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                {transaction.sellerUsername}
-                                                            </Typography>
-                                                            <ArrowForward sx={{ mx: 1, fontSize: 16 }} />
-                                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                {transaction.buyerUsername}
-                                                            </Typography>
-                                                        </Box>
-                                                    )}
+                                                    {renderTransactionDetails(transaction)}
                                                 </Box>
                                             }
                                         />

@@ -782,19 +782,19 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
     try {
         const { offerId } = req.params;
 
-        // Find the offer
+        // Encuentra la oferta
         const offer = await PlayerOffer.findById(offerId);
 
         if (!offer) {
             return res.status(404).json({ message: "Offer not found" });
         }
 
-        // Verify user is the buyer
+        // Verificar que el usuario es el comprador
         if (offer.buyerUserId.toString() !== req.user.id) {
             return res.status(403).json({ message: "You are not the buyer of this offer" });
         }
 
-        // Verify buyer has enough funds
+        // Verificar que el comprador tiene fondos suficientes
         const buyerLeague = await UserLeague.findOne({
             userId: req.user.id,
             leagueId: offer.leagueId
@@ -804,7 +804,7 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
             return res.status(400).json({ message: "Insufficient funds" });
         }
 
-        // Verify seller still owns the player
+        // Verificar que el vendedor aún posee el jugador
         const sellerPlayer = await UserPlayer.findOne({
             playerId: offer.playerId,
             userId: offer.sellerUserId,
@@ -818,15 +818,15 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
         // Obtener la información del jugador antes de la transferencia
         const playerInfo = await getPlayerInfo(offer.playerId);
 
-        // Transfer the player
-        // 1. Remove from seller
+        // Transferir el jugador
+        // 1. Eliminar del vendedor
         await UserPlayer.deleteOne({
             playerId: offer.playerId,
             userId: offer.sellerUserId,
             leagueId: offer.leagueId
         });
 
-        // 2. Assign to buyer
+        // 2. Asignar al comprador
         const newUserPlayer = new UserPlayer({
             playerId: offer.playerId,
             userId: req.user.id,
@@ -836,12 +836,12 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
 
         await newUserPlayer.save();
 
-        // 3. Transfer the money
-        // Deduct from buyer
+        // 3. Transferir el dinero
+        // Restar al comprador
         buyerLeague.money -= offer.price;
         await buyerLeague.save();
 
-        // Add to seller
+        // Añadir al vendedor
         const sellerLeague = await UserLeague.findOne({
             userId: offer.sellerUserId,
             leagueId: offer.leagueId
@@ -852,12 +852,15 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
             await sellerLeague.save();
         }
 
-        // Mark offer as completed
+        // Marcar oferta como completada
         offer.status = 'completed';
         await offer.save();
 
-        // Registrar la transacción como intercambio entre usuarios
+        // IMPORTANTE: Registrar la transacción como intercambio entre usuarios
         try {
+            const Transaction = mongoose.model('Transaction');
+
+            // Crear la transacción con todos los datos necesarios
             const tradeTransaction = new Transaction({
                 type: 'trade',
                 leagueId: offer.leagueId,
@@ -868,17 +871,18 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
                 price: offer.price,
                 sellerUserId: offer.sellerUserId,
                 buyerUserId: offer.buyerUserId,
-                offerId: offer._id
+                offerId: offer._id,
+                createdAt: new Date()
             });
 
             await tradeTransaction.save();
             console.log("Trade transaction registered:", tradeTransaction._id);
         } catch (transactionError) {
-            // Solo registramos el error pero no interrumpimos el flujo principal
+            // Solo logueamos el error pero no interrumpimos el flujo principal
             console.error("Error registering trade transaction:", transactionError);
         }
 
-        // Una sola respuesta al final
+        // Responder con éxito
         return res.status(200).json({
             message: "Transfer completed successfully",
             player: playerInfo || { id: offer.playerId }

@@ -479,12 +479,15 @@ const TeamPage = () => {
                 });
             }
 
-            setSuccessMessage("Offer accepted successfully! The player has been added to your team.");
+            setSuccessMessage("Oferta aceptada correctamente! El jugador se ha añadido a tu equipo.");
+
+            // Un intercambio se ha completado, lo que debería aparecer en ActivityPage
+            console.log("Trade completed, should appear in ActivityPage");
 
             // Refresh player data
             setRefreshKey(prevKey => prevKey + 1);
         } else if (action === 'reject') {
-            setSuccessMessage("Offer rejected.");
+            setSuccessMessage("Oferta rechazada.");
         }
 
         // Always refresh the offers list

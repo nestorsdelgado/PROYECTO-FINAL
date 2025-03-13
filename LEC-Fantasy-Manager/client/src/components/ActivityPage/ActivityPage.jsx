@@ -19,7 +19,9 @@ import {
     MenuItem,
     Button,
     IconButton,
-    Tooltip
+    Tooltip,
+    ToggleButtonGroup,
+    ToggleButton
 } from '@mui/material';
 import {
     ShoppingCart,
@@ -29,15 +31,30 @@ import {
     Refresh,
     SortByAlpha,
     KeyboardArrowDown,
-    KeyboardArrowUp
+    KeyboardArrowUp,
+    LocalAtm,
+    SwapHoriz
 } from '@mui/icons-material';
 import useSelectedLeague from '../../hooks/useSelectedLeague';
 import { useNavigate } from 'react-router-dom';
 import transactionService from '../../services/transactions.service';
+import playerService from '../../services/players.service';
 import './ActivityPage.css';
 
-// No necesitamos la función de simulación ya que vamos a 
-// usar el servicio de transacciones para obtener datos reales
+// Función de utilidad para determinar el color según la posición del jugador
+const getPositionColor = (position) => {
+    const colors = {
+        top: '#F44336',    // Red
+        jungle: '#4CAF50', // Green
+        mid: '#2196F3',    // Blue
+        adc: '#FF9800',    // Orange
+        bottom: '#FF9800', // Orange (mismo color que ADC)
+        support: '#9C27B0' // Purple
+    };
+
+    if (!position) return '#757575';
+    return colors[position.toLowerCase()] || '#757575';
+};
 
 // Componente principal de Activity Page
 const ActivityPage = () => {
@@ -52,6 +69,7 @@ const ActivityPage = () => {
     const [playerFilter, setPlayerFilter] = useState('');
     const [sortOrder, setSortOrder] = useState('desc'); // desc = más reciente primero
     const [refreshKey, setRefreshKey] = useState(0);
+    const [activeView, setActiveView] = useState('all'); // 'all', 'purchases', 'sales', 'trades'
 
     // Efecto para cargar las transacciones iniciales
     useEffect(() => {
@@ -70,8 +88,26 @@ const ActivityPage = () => {
                 console.log("Transacciones recibidas:", data?.length || 0);
 
                 if (Array.isArray(data)) {
-                    setTransactions(data);
-                    setFilteredTransactions(data);
+                    // Normalizar los datos para facilitar su procesamiento
+                    const normalizedData = data.map(transaction => ({
+                        id: transaction.id || transaction._id,
+                        type: transaction.type || 'unknown',
+                        typeLabel: getTransactionTypeLabel(transaction.type),
+                        playerId: transaction.playerId,
+                        playerName: transaction.playerName || 'Jugador desconocido',
+                        playerTeam: transaction.playerTeam || '',
+                        playerPosition: transaction.playerPosition || '',
+                        price: transaction.price || 0,
+                        timestamp: new Date(transaction.timestamp || transaction.createdAt),
+                        username: transaction.username || transaction.userId?.username,
+                        sellerUserId: transaction.sellerUserId?._id || transaction.sellerUserId,
+                        sellerUsername: transaction.sellerUsername || transaction.sellerUserId?.username || 'Usuario',
+                        buyerUserId: transaction.buyerUserId?._id || transaction.buyerUserId,
+                        buyerUsername: transaction.buyerUsername || transaction.buyerUserId?.username || 'Usuario'
+                    }));
+
+                    setTransactions(normalizedData);
+                    setFilteredTransactions(normalizedData);
                 } else {
                     console.error("Los datos recibidos no son un array:", data);
                     setTransactions([]);
@@ -99,14 +135,43 @@ const ActivityPage = () => {
         return () => clearInterval(intervalId);
     }, [selectedLeague, refreshKey]);
 
+    // Función para obtener una etiqueta legible según el tipo de transacción
+    const getTransactionTypeLabel = (type) => {
+        switch (type) {
+            case 'purchase':
+                return 'Compra del mercado';
+            case 'sale':
+                return 'Venta al mercado';
+            case 'trade':
+                return 'Intercambio entre usuarios';
+            default:
+                return 'Transacción';
+        }
+    };
+
     // Efecto para aplicar filtros
     useEffect(() => {
         if (!transactions.length) return;
 
         let results = [...transactions];
 
-        // Filtrar por tipo de transacción
-        if (typeFilter) {
+        // Filtrar por vista activa
+        if (activeView !== 'all') {
+            switch (activeView) {
+                case 'purchases':
+                    results = results.filter(t => t.type === 'purchase');
+                    break;
+                case 'sales':
+                    results = results.filter(t => t.type === 'sale');
+                    break;
+                case 'trades':
+                    results = results.filter(t => t.type === 'trade');
+                    break;
+            }
+        }
+
+        // Filtrar por tipo de transacción (si hay un filtro adicional seleccionado)
+        if (typeFilter && (activeView === 'all' || activeView === typeFilter)) {
             results = results.filter(t => t.type === typeFilter);
         }
 
@@ -114,21 +179,21 @@ const ActivityPage = () => {
         if (playerFilter) {
             const search = playerFilter.toLowerCase();
             results = results.filter(t =>
-                t.playerName.toLowerCase().includes(search) ||
-                t.playerTeam.toLowerCase().includes(search)
+                (t.playerName?.toLowerCase().includes(search) || false) ||
+                (t.playerTeam?.toLowerCase().includes(search) || false)
             );
         }
 
         // Ordenar por fecha
         results.sort((a, b) => {
             if (sortOrder === 'asc') {
-                return a.timestamp - b.timestamp;
+                return new Date(a.timestamp) - new Date(b.timestamp);
             }
-            return b.timestamp - a.timestamp;
+            return new Date(b.timestamp) - new Date(a.timestamp);
         });
 
         setFilteredTransactions(results);
-    }, [transactions, typeFilter, playerFilter, sortOrder]);
+    }, [transactions, typeFilter, playerFilter, sortOrder, activeView]);
 
     // Manejadores de filtros
     const handleTypeChange = (event) => {
@@ -137,6 +202,13 @@ const ActivityPage = () => {
 
     const handlePlayerFilterChange = (event) => {
         setPlayerFilter(event.target.value);
+    };
+
+    // Cambiar la vista activa
+    const handleViewChange = (event, newView) => {
+        if (newView !== null) {
+            setActiveView(newView);
+        }
     };
 
     // Actualizar las transacciones cuando cambie refreshKey
@@ -152,11 +224,16 @@ const ActivityPage = () => {
     const clearFilters = () => {
         setTypeFilter('');
         setPlayerFilter('');
+        setActiveView('all');
     };
 
     // Función para formatear la fecha
     const formatTimestamp = (timestamp) => {
+        if (!timestamp) return 'Fecha desconocida';
+
         const date = new Date(timestamp);
+        if (isNaN(date)) return 'Fecha inválida';
+
         return date.toLocaleDateString(undefined, {
             day: '2-digit',
             month: '2-digit',
@@ -164,20 +241,6 @@ const ActivityPage = () => {
             hour: '2-digit',
             minute: '2-digit'
         });
-    };
-
-    // Función para obtener el color de la posición
-    const getPositionColor = (position) => {
-        const colors = {
-            top: '#F44336',    // Red
-            jungle: '#4CAF50', // Green
-            mid: '#2196F3',    // Blue
-            adc: '#FF9800',    // Orange
-            bottom: '#FF9800', // Orange (mismo color que ADC)
-            support: '#9C27B0' // Purple
-        };
-
-        return colors[position?.toLowerCase()] || '#757575';
     };
 
     // Si no hay liga seleccionada, mostrar mensaje
@@ -201,15 +264,56 @@ const ActivityPage = () => {
 
     return (
         <div className="activity-container">
-            <Typography variant="h4" component="h1" sx={{ mb: 3, textAlign: 'center' }}>
-                Actividad Reciente - {selectedLeague.Nombre}
-            </Typography>
 
-            {/* Filtros */}
+            {/* Controles de vista rápida */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <ToggleButtonGroup
+                    value={activeView}
+                    exclusive
+                    onChange={handleViewChange}
+                    aria-label="transaction type view"
+                    sx={{
+                        gap: '10px',
+                        '& .MuiToggleButton-root': {
+                            color: 'white',
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            backgroundColor: 'rgba(25, 118, 210, 0.9)',
+                            '&.Mui-selected': {
+                                backgroundColor: 'rgba(6, 36, 67, 0.9)',
+                                color: 'white',
+                                '&:hover': {
+                                    backgroundColor: 'rgba(6, 36, 67, 0.9)',
+                                }
+                            },
+                            '&:hover': {
+                                backgroundColor: 'rgba(6, 36, 67, 0.9)',
+                            }
+                        }
+                    }}
+                >
+                    <ToggleButton value="all" aria-label="all transactions">
+                        Todas
+                    </ToggleButton>
+                    <ToggleButton value="purchases" aria-label="purchases">
+                        <ShoppingCart sx={{ mr: 1 }} />
+                        Compras
+                    </ToggleButton>
+                    <ToggleButton value="sales" aria-label="sales">
+                        <LocalAtm sx={{ mr: 1 }} />
+                        Ventas
+                    </ToggleButton>
+                    <ToggleButton value="trades" aria-label="trades">
+                        <SwapHoriz sx={{ mr: 1 }} />
+                        Intercambios
+                    </ToggleButton>
+                </ToggleButtonGroup>
+            </Box>
+
+            {/* Filtros avanzados */}
             <Box className="activity-filters">
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mb: 2 }}>
                     <Typography variant="h6">
-                        Filtros
+                        Filtros Avanzados
                     </Typography>
                     <Box>
                         <Tooltip title="Actualizar">
@@ -265,7 +369,7 @@ const ActivityPage = () => {
                                 <MenuItem key={name} value={name}>{name}</MenuItem>
                             ))}
                             {/* Extraer equipos únicos de las transacciones */}
-                            {Array.from(new Set(transactions.map(t => t.playerTeam))).map((team) => (
+                            {Array.from(new Set(transactions.map(t => t.playerTeam).filter(Boolean))).map((team) => (
                                 <MenuItem key={`team-${team}`} value={team}>Equipo: {team}</MenuItem>
                             ))}
                         </Select>
@@ -283,7 +387,7 @@ const ActivityPage = () => {
             {/* Transaction list */}
             {!loading && (
                 <>
-                    <Typography variant="subtitle1" sx={{ color: 'white', mb: 2 }}>
+                    <Typography variant="subtitle1" sx={{ color: 'black', mb: 2 }}>
                         {filteredTransactions.length === 0
                             ? "No hay transacciones para mostrar"
                             : `Mostrando ${filteredTransactions.length} transacciones`}
@@ -292,7 +396,7 @@ const ActivityPage = () => {
                     <Paper sx={{ bgcolor: 'rgba(0, 0, 0, 0.7)', p: 0 }}>
                         <List sx={{ width: '100%' }}>
                             {filteredTransactions.map((transaction, index) => (
-                                <React.Fragment key={transaction.id}>
+                                <React.Fragment key={transaction.id || index}>
                                     <ListItem
                                         alignItems="flex-start"
                                         sx={{
@@ -312,8 +416,8 @@ const ActivityPage = () => {
                                                         : 'warning.main'
                                             }}>
                                                 {transaction.type === 'purchase' && <ShoppingCart />}
-                                                {transaction.type === 'sale' && <ShoppingCart />}
-                                                {transaction.type === 'trade' && <Person />}
+                                                {transaction.type === 'sale' && <LocalAtm />}
+                                                {transaction.type === 'trade' && <SwapHoriz />}
                                             </Avatar>
                                         </ListItemAvatar>
 
@@ -340,28 +444,35 @@ const ActivityPage = () => {
                                                 <Box sx={{ color: 'rgba(255, 255, 255, 0.7)', mt: 1 }}>
                                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1 }}>
                                                         {/* Equipo del jugador */}
-                                                        <Chip
-                                                            label={transaction.playerTeam}
-                                                            size="small"
-                                                            variant="outlined"
-                                                            sx={{ borderColor: 'rgba(255, 255, 255, 0.3)' }}
-                                                        />
+                                                        {transaction.playerTeam && (
+                                                            <Chip
+                                                                label={transaction.playerTeam}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                sx={{ borderColor: 'rgba(255, 255, 255, 0.3)' }}
+                                                            />
+                                                        )}
 
                                                         {/* Posición del jugador */}
-                                                        <Chip
-                                                            label={transaction.playerPosition}
-                                                            size="small"
-                                                            sx={{
-                                                                bgcolor: getPositionColor(transaction.playerPosition),
-                                                                color: 'white'
-                                                            }}
-                                                        />
+                                                        {transaction.playerPosition && (
+                                                            <Chip
+                                                                label={transaction.playerPosition}
+                                                                size="small"
+                                                                sx={{
+                                                                    bgcolor: getPositionColor(transaction.playerPosition),
+                                                                    color: 'white'
+                                                                }}
+                                                            />
+                                                        )}
 
                                                         {/* Precio */}
                                                         <Chip
                                                             label={`${transaction.price}M€`}
                                                             size="small"
-                                                            sx={{ bgcolor: 'primary.main', color: 'white' }}
+                                                            sx={{
+                                                                bgcolor: 'primary.main',
+                                                                color: 'white'
+                                                            }}
                                                         />
 
                                                         {/* Tipo de transacción */}

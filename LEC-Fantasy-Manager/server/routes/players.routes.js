@@ -411,13 +411,34 @@ router.post('/players/buy', auth, async (req, res) => {
         userLeague.money -= playerInfo.price;
         await userLeague.save();
 
+        // Registrar la transacción en un bloque try/catch separado para que no interrumpa el flujo principal
+        try {
+            const newTransaction = new Transaction({
+                type: 'purchase',
+                leagueId: leagueId,
+                playerId: playerId,
+                playerName: playerInfo.summonerName || playerInfo.name || 'Jugador desconocido',
+                playerTeam: playerInfo.team || '',
+                playerPosition: playerPosition || playerInfo.role || '',
+                price: playerInfo.price,
+                userId: req.user.id
+            });
+
+            await newTransaction.save();
+            console.log("Purchase transaction registered:", newTransaction._id);
+        } catch (transactionError) {
+            // Solo registramos el error pero no interrumpimos el flujo principal
+            console.error("Error registering purchase transaction:", transactionError);
+        }
+
         // Modificar playerInfo para devolver la posición correcta
         const finalPlayerInfo = {
             ...playerInfo,
             role: playerPosition // Asegurar que el objeto devuelto tenga la posición correcta
         };
 
-        res.status(201).json({
+        // Una sola respuesta al final
+        return res.status(201).json({
             message: "Player purchased successfully",
             player: finalPlayerInfo,
             remainingMoney: userLeague.money
@@ -425,7 +446,7 @@ router.post('/players/buy', auth, async (req, res) => {
 
     } catch (error) {
         console.error("Error buying player:", error);
-        res.status(500).json({ message: "Failed to buy player" });
+        return res.status(500).json({ message: "Failed to buy player" });
     }
 });
 
@@ -667,12 +688,36 @@ router.post('/players/sell/market', auth, async (req, res) => {
             leagueId
         });
 
-        if (userLeague) {
-            userLeague.money += sellPrice;
-            await userLeague.save();
+        if (!userLeague) {
+            return res.status(404).json({ message: "User league data not found" });
         }
 
-        res.status(200).json({
+        userLeague.money += sellPrice;
+        await userLeague.save();
+
+        // Registrar la transacción
+        try {
+            const sellTransaction = new Transaction({
+                type: 'sale',
+                leagueId: leagueId,
+                playerId: playerId,
+                playerName: playerInfo.summonerName || playerInfo.name || 'Jugador desconocido',
+                playerTeam: playerInfo.team || '',
+                playerPosition: playerInfo.role || '',
+                price: sellPrice,
+                userId: req.user.id
+            });
+
+            await sellTransaction.save();
+            console.log("Transaction registered successfully:", sellTransaction._id);
+        } catch (transactionError) {
+            // Solo registramos el error, pero no interferimos con la respuesta principal
+            console.error("Error registering transaction:", transactionError);
+            // No respondemos aquí, solo continuamos con la operación principal
+        }
+
+        // Una sola respuesta al final
+        return res.status(200).json({
             message: "Player sold successfully",
             sellPrice,
             newBalance: userLeague.money,
@@ -680,7 +725,7 @@ router.post('/players/sell/market', auth, async (req, res) => {
         });
     } catch (error) {
         console.error("Error selling player:", error);
-        res.status(500).json({ message: "Failed to sell player", error: error.message });
+        return res.status(500).json({ message: "Failed to sell player", error: error.message });
     }
 });
 
@@ -737,19 +782,19 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
     try {
         const { offerId } = req.params;
 
-        // Buscar la oferta
+        // Find the offer
         const offer = await PlayerOffer.findById(offerId);
 
         if (!offer) {
             return res.status(404).json({ message: "Offer not found" });
         }
 
-        // Verificar que el usuario es el comprador
+        // Verify user is the buyer
         if (offer.buyerUserId.toString() !== req.user.id) {
             return res.status(403).json({ message: "You are not the buyer of this offer" });
         }
 
-        // Verificar fondos del comprador
+        // Verify buyer has enough funds
         const buyerLeague = await UserLeague.findOne({
             userId: req.user.id,
             leagueId: offer.leagueId
@@ -759,7 +804,7 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
             return res.status(400).json({ message: "Insufficient funds" });
         }
 
-        // Verificar que el vendedor aún tiene el jugador
+        // Verify seller still owns the player
         const sellerPlayer = await UserPlayer.findOne({
             playerId: offer.playerId,
             userId: offer.sellerUserId,
@@ -770,29 +815,33 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
             return res.status(400).json({ message: "Seller no longer owns this player" });
         }
 
-        // Transferir el jugador
-        // 1. Eliminar del vendedor
+        // Obtener la información del jugador antes de la transferencia
+        const playerInfo = await getPlayerInfo(offer.playerId);
+
+        // Transfer the player
+        // 1. Remove from seller
         await UserPlayer.deleteOne({
             playerId: offer.playerId,
             userId: offer.sellerUserId,
             leagueId: offer.leagueId
         });
 
-        // 2. Asignar al comprador
+        // 2. Assign to buyer
         const newUserPlayer = new UserPlayer({
             playerId: offer.playerId,
             userId: req.user.id,
-            leagueId: offer.leagueId
+            leagueId: offer.leagueId,
+            position: sellerPlayer.position // Mantener la posición actual
         });
 
         await newUserPlayer.save();
 
-        // 3. Transferir el dinero
-        // Restar al comprador
+        // 3. Transfer the money
+        // Deduct from buyer
         buyerLeague.money -= offer.price;
         await buyerLeague.save();
 
-        // Sumar al vendedor
+        // Add to seller
         const sellerLeague = await UserLeague.findOne({
             userId: offer.sellerUserId,
             leagueId: offer.leagueId
@@ -803,16 +852,40 @@ router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
             await sellerLeague.save();
         }
 
-        // Marcar oferta como completada
+        // Mark offer as completed
         offer.status = 'completed';
         await offer.save();
 
-        res.status(200).json({
-            message: "Transfer completed successfully"
+        // Registrar la transacción como intercambio entre usuarios
+        try {
+            const tradeTransaction = new Transaction({
+                type: 'trade',
+                leagueId: offer.leagueId,
+                playerId: offer.playerId,
+                playerName: playerInfo?.summonerName || playerInfo?.name || 'Jugador desconocido',
+                playerTeam: playerInfo?.team || '',
+                playerPosition: playerInfo?.role || sellerPlayer.position || '',
+                price: offer.price,
+                sellerUserId: offer.sellerUserId,
+                buyerUserId: offer.buyerUserId,
+                offerId: offer._id
+            });
+
+            await tradeTransaction.save();
+            console.log("Trade transaction registered:", tradeTransaction._id);
+        } catch (transactionError) {
+            // Solo registramos el error pero no interrumpimos el flujo principal
+            console.error("Error registering trade transaction:", transactionError);
+        }
+
+        // Una sola respuesta al final
+        return res.status(200).json({
+            message: "Transfer completed successfully",
+            player: playerInfo || { id: offer.playerId }
         });
     } catch (error) {
         console.error("Error accepting offer:", error);
-        res.status(500).json({ message: "Failed to accept offer" });
+        return res.status(500).json({ message: "Failed to accept offer" });
     }
 });
 
@@ -1070,90 +1143,6 @@ router.get('/players/offers/:leagueId', auth, async (req, res) => {
     }
 });
 
-// Accept offer
-router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
-    try {
-        const { offerId } = req.params;
-
-        // Find the offer
-        const offer = await PlayerOffer.findById(offerId);
-
-        if (!offer) {
-            return res.status(404).json({ message: "Offer not found" });
-        }
-
-        // Verify user is the buyer
-        if (offer.buyerUserId.toString() !== req.user.id) {
-            return res.status(403).json({ message: "You are not the buyer of this offer" });
-        }
-
-        // Verify buyer has enough funds
-        const buyerLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        if (!buyerLeague || buyerLeague.money < offer.price) {
-            return res.status(400).json({ message: "Insufficient funds" });
-        }
-
-        // Verify seller still owns the player
-        const sellerPlayer = await UserPlayer.findOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (!sellerPlayer) {
-            return res.status(400).json({ message: "Seller no longer owns this player" });
-        }
-
-        // Transfer the player
-        // 1. Remove from seller
-        await UserPlayer.deleteOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        // 2. Assign to buyer
-        const newUserPlayer = new UserPlayer({
-            playerId: offer.playerId,
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        await newUserPlayer.save();
-
-        // 3. Transfer the money
-        // Deduct from buyer
-        buyerLeague.money -= offer.price;
-        await buyerLeague.save();
-
-        // Add to seller
-        const sellerLeague = await UserLeague.findOne({
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (sellerLeague) {
-            sellerLeague.money += offer.price;
-            await sellerLeague.save();
-        }
-
-        // Mark offer as completed
-        offer.status = 'completed';
-        await offer.save();
-
-        res.status(200).json({
-            message: "Transfer completed successfully"
-        });
-    } catch (error) {
-        console.error("Error accepting offer:", error);
-        res.status(500).json({ message: "Failed to accept offer" });
-    }
-});
-
 // Reject offer
 router.post('/players/offer/reject/:offerId', auth, async (req, res) => {
     try {
@@ -1308,90 +1297,6 @@ router.get('/players/offers/:leagueId', auth, async (req, res) => {
     } catch (error) {
         console.error("Error fetching offers:", error);
         res.status(500).json({ message: "Failed to fetch offers" });
-    }
-});
-
-// Accept offer
-router.post('/players/offer/accept/:offerId', auth, async (req, res) => {
-    try {
-        const { offerId } = req.params;
-
-        // Find the offer
-        const offer = await PlayerOffer.findById(offerId);
-
-        if (!offer) {
-            return res.status(404).json({ message: "Offer not found" });
-        }
-
-        // Verify user is the buyer
-        if (offer.buyerUserId.toString() !== req.user.id) {
-            return res.status(403).json({ message: "You are not the buyer of this offer" });
-        }
-
-        // Verify buyer has enough funds
-        const buyerLeague = await UserLeague.findOne({
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        if (!buyerLeague || buyerLeague.money < offer.price) {
-            return res.status(400).json({ message: "Insufficient funds" });
-        }
-
-        // Verify seller still owns the player
-        const sellerPlayer = await UserPlayer.findOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (!sellerPlayer) {
-            return res.status(400).json({ message: "Seller no longer owns this player" });
-        }
-
-        // Transfer the player
-        // 1. Remove from seller
-        await UserPlayer.deleteOne({
-            playerId: offer.playerId,
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        // 2. Assign to buyer
-        const newUserPlayer = new UserPlayer({
-            playerId: offer.playerId,
-            userId: req.user.id,
-            leagueId: offer.leagueId
-        });
-
-        await newUserPlayer.save();
-
-        // 3. Transfer the money
-        // Deduct from buyer
-        buyerLeague.money -= offer.price;
-        await buyerLeague.save();
-
-        // Add to seller
-        const sellerLeague = await UserLeague.findOne({
-            userId: offer.sellerUserId,
-            leagueId: offer.leagueId
-        });
-
-        if (sellerLeague) {
-            sellerLeague.money += offer.price;
-            await sellerLeague.save();
-        }
-
-        // Mark offer as completed
-        offer.status = 'completed';
-        await offer.save();
-
-        res.status(200).json({
-            message: "Transfer completed successfully"
-        });
-    } catch (error) {
-        console.error("Error accepting offer:", error);
-        res.status(500).json({ message: "Failed to accept offer" });
     }
 });
 

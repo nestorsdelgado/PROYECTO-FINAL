@@ -1,4 +1,5 @@
 import api from "./axios";
+import transactionService from './transactions.service';
 
 const normalizePlayerData = (player) => {
     if (!player) return null;
@@ -18,7 +19,22 @@ const normalizePlayerData = (player) => {
     };
 };
 
+
+
 class PlayerService {
+
+    getCurrentUserId() {
+        try {
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                return JSON.parse(userData).id;
+            }
+            return null;
+        } catch (e) {
+            console.error("Error getting current user ID:", e);
+            return null;
+        }
+    }
 
     // Get all players
     async getAllPlayers() {
@@ -69,7 +85,7 @@ class PlayerService {
     }
 
     // Buy a player
-    async buyPlayer(playerId, leagueId) {
+    async buyPlayer(playerId, leagueId, position) {
         try {
             // Primero obtener la información del jugador para conocer su posición original
             const allPlayers = await this.getAllPlayers();
@@ -84,6 +100,18 @@ class PlayerService {
                 playerId,
                 leagueId,
                 position: playerInfo.role // Enviar la posición correcta desde la tienda
+            });
+
+            // Registrar la transacción de compra
+            await transactionService.registerTransaction({
+                type: 'purchase',
+                leagueId,
+                playerId,
+                playerName: playerInfo.summonerName || playerInfo.name || 'Jugador desconocido',
+                playerTeam: playerInfo.team || '',
+                playerPosition: playerInfo.role || position || '',
+                price: playerInfo.price || response.data.price || 0,
+                userId: this.getCurrentUserId()
             });
 
             return response.data;
@@ -193,10 +221,29 @@ class PlayerService {
     // Sell player to market
     async sellPlayerToMarket(playerId, leagueId) {
         try {
+            // Obtener info del jugador antes de venderlo
+            const playerInfo = await this.getPlayerById(playerId);
+
             const response = await api.post("/api/players/sell/market", {
                 playerId,
                 leagueId
             });
+
+            // Calcular el precio de venta (2/3 del original)
+            const sellPrice = playerInfo ? Math.round((playerInfo.price || 0) * 2 / 3) : 0;
+
+            // Registrar la transacción de venta
+            await transactionService.registerTransaction({
+                type: 'sale',
+                leagueId,
+                playerId,
+                playerName: playerInfo?.summonerName || playerInfo?.name || 'Jugador desconocido',
+                playerTeam: playerInfo?.team || '',
+                playerPosition: playerInfo?.role || '',
+                price: sellPrice,
+                userId: this.getCurrentUserId()
+            });
+
             return response.data;
         } catch (error) {
             console.error("Error selling player to market:", error);
@@ -249,6 +296,7 @@ class PlayerService {
     async acceptOffer(offerId) {
         try {
             const response = await api.post(`/api/players/offer/accept/${offerId}`);
+
             return response.data;
         } catch (error) {
             console.error("Error accepting offer:", error);

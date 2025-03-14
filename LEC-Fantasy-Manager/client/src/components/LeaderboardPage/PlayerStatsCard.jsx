@@ -41,12 +41,12 @@ const getPositionColor = (position) => {
 
 // Detailed scoring formula explanation
 const SCORING_FORMULAS = {
-    kills: { value: 3, description: "3 points per kill" },
-    deaths: { value: -1, description: "-1 point per death" },
-    assists: { value: 1.5, description: "1.5 points per assist" },
-    cs: { value: 0.02, description: "0.02 points per minion killed" },
-    visionScore: { value: 0.05, description: "0.05 points per vision score" },
-    teamWin: { value: 2, description: "2 points for team win" }
+    kills: { value: 3, description: "3 puntos por asesinato" },
+    deaths: { value: -1, description: "-1 punto por muerte" },
+    assists: { value: 1.5, description: "1.5 puntos por asistencia" },
+    cs: { value: 0.02, description: "0.02 puntos por súbdito eliminado" },
+    visionScore: { value: 0.05, description: "0.05 puntos por puntuación de visión" },
+    teamWin: { value: 2, description: "2 puntos por victoria del equipo" }
 };
 
 const PlayerStatsCard = ({ player }) => {
@@ -66,7 +66,7 @@ const PlayerStatsCard = ({ player }) => {
             { label: "Asistencias", value: stats.assists, points: stats.assists * SCORING_FORMULAS.assists.value },
             { label: "CS", value: stats.cs, points: stats.cs * SCORING_FORMULAS.cs.value },
             { label: "Visión", value: stats.visionScore, points: stats.visionScore * SCORING_FORMULAS.visionScore.value },
-            { label: "Equipo ganador", value: stats.teamWin ? "Si" : "No", points: stats.teamWin ? SCORING_FORMULAS.teamWin.value : 0 }
+            { label: "Equipo ganador", value: stats.teamWin ? "Sí" : "No", points: stats.teamWin ? SCORING_FORMULAS.teamWin.value : 0 }
         ];
 
         // Calculate total points
@@ -102,7 +102,7 @@ const PlayerStatsCard = ({ player }) => {
                             }}
                         />
                         <Box>
-                            <Typography variant="h6" sx={{ mb: 0.5 }}>
+                            <Typography variant="h6" sx={{ mb: 0.5, color: 'white' }}>
                                 {player.summonerName}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -168,8 +168,8 @@ const PlayerStatsCard = ({ player }) => {
                                                     </Tooltip>
                                                 </TableCell>
                                                 <TableCell align="center">
-                                                    {item.label === "Team Win" ? (
-                                                        item.value === "Yes" ? (
+                                                    {item.label === "Equipo ganador" ? (
+                                                        item.value === "Sí" ? (
                                                             <ThumbUp fontSize="small" color="success" />
                                                         ) : (
                                                             <ThumbDown fontSize="small" color="error" />
@@ -206,14 +206,14 @@ const PlayerStatsCard = ({ player }) => {
                         </Collapse>
 
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Tooltip title="Kills / Deaths / Assists">
+                            <Tooltip title="Asesinatos / Muertes / Asistencias">
                                 <Chip
                                     label={`${player.matchStats.kills}/${player.matchStats.deaths}/${player.matchStats.assists}`}
                                     size="small"
                                     sx={{ bgcolor: 'rgba(25, 118, 210, 0.2)' }}
                                 />
                             </Tooltip>
-                            <Tooltip title="CS (Minions killed)">
+                            <Tooltip title="CS (Súbditos eliminados)">
                                 <Chip
                                     icon={<Agriculture sx={{ fontSize: '1rem' }} />}
                                     label={player.matchStats.cs}
@@ -221,7 +221,7 @@ const PlayerStatsCard = ({ player }) => {
                                     sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)' }}
                                 />
                             </Tooltip>
-                            <Tooltip title="Vision Score">
+                            <Tooltip title="Puntuación de Visión">
                                 <Chip
                                     icon={<VisibilityOutlined sx={{ fontSize: '1rem' }} />}
                                     label={player.matchStats.visionScore}

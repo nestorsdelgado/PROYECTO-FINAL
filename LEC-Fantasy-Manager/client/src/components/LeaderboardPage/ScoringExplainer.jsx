@@ -34,30 +34,30 @@ const ScoringExplainer = () => {
     };
 
     const scoringRules = [
-        { stat: 'Kill', points: '+3.0', description: 'Points awarded for each kill secured by the player' },
-        { stat: 'Death', points: '-1.0', description: 'Points deducted for each death' },
-        { stat: 'Assist', points: '+1.5', description: 'Points awarded for each assist' },
-        { stat: 'CS (Creep Score)', points: '+0.02', description: 'Points per minion or monster killed' },
-        { stat: 'Vision Score', points: '+0.05', description: 'Points per point of vision score' },
-        { stat: 'Team Win', points: '+2.0', description: 'Bonus points if the player\'s team wins the match' },
-        { stat: 'Triple Kill', points: '+2.0', description: 'Bonus for achieving a triple kill' },
-        { stat: 'Quadra Kill', points: '+5.0', description: 'Bonus for achieving a quadra kill' },
-        { stat: 'Penta Kill', points: '+10.0', description: 'Bonus for achieving a penta kill' },
-        { stat: 'First Blood', points: '+2.0', description: 'Bonus for securing or assisting in first blood' }
+        { stat: 'Asesinato', points: '+3.0', description: 'Puntos otorgados por cada asesinato conseguido por el jugador' },
+        { stat: 'Muerte', points: '-1.0', description: 'Puntos deducidos por cada muerte' },
+        { stat: 'Asistencia', points: '+1.5', description: 'Puntos otorgados por cada asistencia' },
+        { stat: 'CS (Súbditos)', points: '+0.02', description: 'Puntos por cada súbdito o monstruo eliminado' },
+        { stat: 'Puntuación de Visión', points: '+0.05', description: 'Puntos por cada punto de puntuación de visión' },
+        { stat: 'Victoria del Equipo', points: '+2.0', description: 'Puntos de bonificación si el equipo del jugador gana la partida' },
+        { stat: 'Triple Kill', points: '+2.0', description: 'Bonificación por conseguir un triple asesinato' },
+        { stat: 'Cuádruple Kill', points: '+5.0', description: 'Bonificación por conseguir un cuádruple asesinato' },
+        { stat: 'Penta Kill', points: '+10.0', description: 'Bonificación por conseguir un penta asesinato' },
+        { stat: 'Primera Sangre', points: '+2.0', description: 'Bonificación por conseguir o asistir en la primera sangre' }
     ];
 
     const bonusScoring = [
-        { condition: 'Flawless Game (0 deaths)', points: '+3.0', applicable: 'All positions' },
-        { condition: '10+ Kills', points: '+3.0', applicable: 'All positions' },
-        { condition: '10+ Assists', points: '+2.0', applicable: 'Support, Jungle' },
-        { condition: '100+ CS Difference @15', points: '+3.0', applicable: 'All positions' },
-        { condition: 'Drake Soul Secured', points: '+2.0', applicable: 'Team bonus' },
-        { condition: 'Baron Steal', points: '+3.0', applicable: 'All positions' }
+        { condition: 'Partida Perfecta (0 muertes)', points: '+3.0', applicable: 'Todas las posiciones' },
+        { condition: '10+ Asesinatos', points: '+3.0', applicable: 'Todas las posiciones' },
+        { condition: '10+ Asistencias', points: '+2.0', applicable: 'Support, Jungle' },
+        { condition: '100+ Diferencia de CS @15', points: '+3.0', applicable: 'Todas las posiciones' },
+        { condition: 'Alma de Dragón Asegurada', points: '+2.0', applicable: 'Bonificación de equipo' },
+        { condition: 'Robo de Barón', points: '+3.0', applicable: 'Todas las posiciones' }
     ];
 
     return (
         <>
-            <Tooltip title="Learn how fantasy points are calculated">
+            <Tooltip title="Aprende cómo se calculan los puntos de fantasía">
                 <Button
                     variant="outlined"
                     size="small"
@@ -93,7 +93,7 @@ const ScoringExplainer = () => {
             >
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center' }}>
-                        Fantasy Points Scoring System
+                        Sistema de Puntuación de Fantasy
                     </Typography>
                     <IconButton onClick={handleClose} sx={{ color: 'white' }}>
                         <Close />
@@ -102,20 +102,20 @@ const ScoringExplainer = () => {
 
                 <DialogContent>
                     <Typography variant="body1" sx={{ mb: 3 }}>
-                        Players earn fantasy points based on their performance in official LEC matches. Here's how points are calculated:
+                        Los jugadores ganan puntos de fantasía basados en su rendimiento en partidos oficiales de la LEC. Así es como se calculan los puntos:
                     </Typography>
 
                     <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
-                        Base Scoring
+                        Puntuación Base
                     </Typography>
 
                     <TableContainer component={Paper} sx={{ mb: 4, bgcolor: 'rgba(0, 0, 0, 0.3)' }}>
                         <Table>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Statistic</TableCell>
-                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Points</TableCell>
-                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Description</TableCell>
+                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Estadística</TableCell>
+                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Puntos</TableCell>
+                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Descripción</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -136,16 +136,16 @@ const ScoringExplainer = () => {
                     </TableContainer>
 
                     <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
-                        Bonus Points
+                        Puntos de Bonificación
                     </Typography>
 
                     <TableContainer component={Paper} sx={{ mb: 3, bgcolor: 'rgba(0, 0, 0, 0.3)' }}>
                         <Table>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Condition</TableCell>
-                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Bonus Points</TableCell>
-                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Applicable To</TableCell>
+                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Condición</TableCell>
+                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Puntos de Bonificación</TableCell>
+                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Aplicable a</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -161,28 +161,28 @@ const ScoringExplainer = () => {
                     </TableContainer>
 
                     <Typography variant="body1" sx={{ mt: 4, mb: 2 }}>
-                        Key things to remember:
+                        Aspectos importantes a recordar:
                     </Typography>
 
                     <Box component="ul" sx={{ ml: 2 }}>
                         <Box component="li" sx={{ mb: 1 }}>
                             <Typography variant="body2">
-                                Points are only awarded for official LEC matches.
+                                Los puntos solo se otorgan por partidos oficiales de la LEC.
                             </Typography>
                         </Box>
                         <Box component="li" sx={{ mb: 1 }}>
                             <Typography variant="body2">
-                                Players must participate in a match to earn points.
+                                Los jugadores deben participar en un partido para ganar puntos.
                             </Typography>
                         </Box>
                         <Box component="li" sx={{ mb: 1 }}>
                             <Typography variant="body2">
-                                Different roles tend to excel in different stats (e.g., Supports get more assists, ADCs get more CS).
+                                Diferentes roles tienden a destacar en diferentes estadísticas (por ejemplo, los Supports consiguen más asistencias, los ADCs más CS).
                             </Typography>
                         </Box>
                         <Box component="li">
                             <Typography variant="body2">
-                                In case of technical issues or game remakes, points will be awarded based on official LEC statistics.
+                                En caso de problemas técnicos o rehacimiento de partidas, los puntos se otorgarán basándose en las estadísticas oficiales de la LEC.
                             </Typography>
                         </Box>
                     </Box>
@@ -190,7 +190,7 @@ const ScoringExplainer = () => {
 
                 <DialogActions sx={{ p: 3 }}>
                     <Button onClick={handleClose} variant="contained" color="primary">
-                        Got it!
+                        ¡Entendido!
                     </Button>
                 </DialogActions>
             </Dialog>

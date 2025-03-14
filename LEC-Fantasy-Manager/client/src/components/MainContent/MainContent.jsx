@@ -47,7 +47,7 @@ const MainContent = ({ isSidebarOpen, openAuthModal }) => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [leaguesPerPage] = useState(2);
+  const [leaguesPerPage] = useState(3);
 
   // This useEffect will run when the component mounts, authentication changes, or refreshKey changes
   useEffect(() => {

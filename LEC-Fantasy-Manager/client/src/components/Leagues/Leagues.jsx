@@ -194,26 +194,6 @@ const Leagues = ({ leagues, onLeagueChange }) => {
                                     </Box>
                                 )}
 
-                                <div className='columna-liga' style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        Número de participantes
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        Cantidad de dinero actual
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        Fecha de siguiente jornada
-                                    </Typography>
-                                </div>
-
-                                <div className='columna-liga' style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        Puntos actuales
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        Posición en liga
-                                    </Typography>
-                                </div>
                             </CardContent>
 
                             <CardActions style={{ justifyContent: "space-between" }}>

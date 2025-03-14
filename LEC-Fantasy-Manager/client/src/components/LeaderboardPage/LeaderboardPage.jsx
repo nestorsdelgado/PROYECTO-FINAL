@@ -83,7 +83,7 @@ const LeaderboardPage = () => {
             setMatchdays(matchdayData);
         } catch (err) {
             console.error("Error fetching available matchdays:", err);
-            setError("Failed to load matchday data");
+            setError("Error al cargar datos de jornadas");
         }
     };
 
@@ -167,7 +167,7 @@ const LeaderboardPage = () => {
             setMatches(matchesData);
         } catch (err) {
             console.error("Error fetching upcoming matches:", err);
-            setError("Failed to load upcoming matches");
+            setError("Error al cargar próximos partidos");
         }
     };
 
@@ -235,7 +235,7 @@ const LeaderboardPage = () => {
                         summonerName: 'Caps',
                         team: 'G2',
                         position: 'mid',
-                        imageUrl: 'https://am-a.akamaihd.net/image?f=https://lolstatic-a.akamaihd.net/esports-assets/production/player/caps-90dg05ej.png',
+                        imageUrl: 'http://static.lolesports.com/players/1737734260603_caps.png',
                         weekPoints: 27,
                         totalPoints: 142,
                         matchStats: {
@@ -271,7 +271,7 @@ const LeaderboardPage = () => {
             setUserLineup(lineupData);
         } catch (err) {
             console.error("Error fetching user lineup:", err);
-            setError("Failed to load your lineup");
+            setError("Error al cargar tu alineación");
         }
     };
 
@@ -297,7 +297,7 @@ const LeaderboardPage = () => {
 
                         return {
                             userId: leagueUser.id,
-                            username: leagueUser.username || `User ${index + 1}`,
+                            username: leagueUser.username || `Usuario ${index + 1}`,
                             position: index + 1,
                             weekPoints: weekPoints,
                             totalPoints: totalPoints,
@@ -409,7 +409,7 @@ const LeaderboardPage = () => {
             setLeagueStandings(standingsData);
         } catch (err) {
             console.error("Error fetching league standings:", err);
-            setError("Failed to load league standings");
+            setError("Error al cargar clasificación de la liga");
         }
     };
 
@@ -440,7 +440,7 @@ const LeaderboardPage = () => {
             })
             .catch(err => {
                 console.error("Error loading data:", err);
-                setError("Failed to load leaderboard data");
+                setError("Error al cargar datos de clasificación");
                 setLoading(false);
             });
 
@@ -481,7 +481,7 @@ const LeaderboardPage = () => {
         return (
             <Box className="leaderboard-container no-league">
                 <Typography variant="h5" sx={{ color: 'white', mb: 3, textAlign: 'center' }}>
-                    You must select a league to view the leaderboard
+                    Debes seleccionar una liga para ver la clasificación
                 </Typography>
 
                 <Button
@@ -489,7 +489,7 @@ const LeaderboardPage = () => {
                     color="primary"
                     onClick={() => navigate('/')}
                 >
-                    Go select a league
+                    Seleccionar una liga
                 </Button>
             </Box>
         );
@@ -518,7 +518,7 @@ const LeaderboardPage = () => {
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                                <CalendarToday sx={{ mr: 1 }} /> Siguiente Matchday: Semana {selectedMatchday}
+                                <CalendarToday sx={{ mr: 1 }} /> Siguiente Jornada: Semana {selectedMatchday}
                             </Typography>
                             <Box>
                                 {matchdays.map((day) => (
@@ -699,7 +699,7 @@ const LeaderboardPage = () => {
                                     <EmojiEvents sx={{ mr: 1, color: '#FFD700' }} /> Clasificación de liga
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <Tooltip title="Weekly view shows rankings based on this week's performance only. Season view shows cumulative points from all weeks.">
+                                    <Tooltip title="La vista semanal muestra clasificaciones basadas únicamente en el rendimiento de esta semana. La vista de temporada muestra puntos acumulados de todas las semanas.">
                                         <Info fontSize="small" sx={{ mr: 1, color: 'rgba(255,255,255,0.7)' }} />
                                     </Tooltip>
                                     <Button
@@ -772,7 +772,7 @@ const LeaderboardPage = () => {
                                                         {standing.username}
                                                         {standing.isCurrentUser && (
                                                             <Chip
-                                                                label="You"
+                                                                label="Tú"
                                                                 size="small"
                                                                 color="primary"
                                                                 sx={{ ml: 1 }}
@@ -792,7 +792,7 @@ const LeaderboardPage = () => {
                                                 <TableCell align="center" sx={{ color: 'white' }}>
                                                     {standing.winStreak > 0 ? (
                                                         <Chip
-                                                            label={`${standing.winStreak} wins`}
+                                                            label={`${standing.winStreak} victorias`}
                                                             size="small"
                                                             color="success"
                                                         />

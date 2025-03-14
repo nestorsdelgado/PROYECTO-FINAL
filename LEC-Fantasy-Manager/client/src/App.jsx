@@ -9,6 +9,7 @@ import MarketPage from './components/MarketPage/MarketPage';
 import TeamPage from './components/TeamPage/TeamPage';
 import InfoPage from './components/InfoPage/InfoPage';
 import ActivityPage from './components/ActivityPage/ActivityPage';
+import LeaderboardPage from './components/LeaderboardPage/LeaderboardPage';
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -57,7 +58,7 @@ function App() {
             <TeamPage />
           }
         />
-        <Route path="/leaderboard" element={<div>Leaderboard Component</div>} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/info" element={<InfoPage />} />
         <Route
           path="/market"

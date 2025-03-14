@@ -1,0 +1,69 @@
+.leaderboard-container {
+    padding: 20px;
+    color: white;
+    overflow-x: hidden;
+    min-height: 91vh;
+    margin-top: 10vh;
+}
+
+.leaderboard-container.no-league {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.matches-banner {
+    background-image: linear-gradient(to right, rgba(15, 32, 39, 0.8), rgba(44, 83, 100, 0.8));
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.match-card {
+    border-radius: 8px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.match-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(to right, #1976d2, #64b5f6);
+}
+
+.player-points-card {
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    height: 100%;
+}
+
+.player-points-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(to right, #1976d2, #64b5f6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.player-points-card:hover::after {
+    opacity: 1;
+}
+
+/* Custom styles for the points display */
+.points-highlight {
+    font-weight: bold;
+    color: #1976d2;
+}
+
+/* Dark theme styles for inputs */

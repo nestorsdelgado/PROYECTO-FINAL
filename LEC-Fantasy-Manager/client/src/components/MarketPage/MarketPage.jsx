@@ -17,7 +17,7 @@ import {
 import { Search } from '@mui/icons-material';
 import useSelectedLeague from '../../hooks/useSelectedLeague';
 import playerService from '../../services/players.service';
-import PlayerCard from '../PlayerCard/PlayerCard';
+import PlayerCard from '../LeaderboardPage/PlayerCard';
 import { useNavigate } from 'react-router-dom';
 import './MarketPage.css';
 import EuroIcon from '@mui/icons-material/Euro';

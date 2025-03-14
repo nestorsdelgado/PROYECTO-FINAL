@@ -61,12 +61,12 @@ const PlayerStatsCard = ({ player }) => {
         if (!stats) return [];
 
         const breakdown = [
-            { label: "Kills", value: stats.kills, points: stats.kills * SCORING_FORMULAS.kills.value },
-            { label: "Deaths", value: stats.deaths, points: stats.deaths * SCORING_FORMULAS.deaths.value },
-            { label: "Assists", value: stats.assists, points: stats.assists * SCORING_FORMULAS.assists.value },
+            { label: "Asesinatos", value: stats.kills, points: stats.kills * SCORING_FORMULAS.kills.value },
+            { label: "Muertes", value: stats.deaths, points: stats.deaths * SCORING_FORMULAS.deaths.value },
+            { label: "Asistencias", value: stats.assists, points: stats.assists * SCORING_FORMULAS.assists.value },
             { label: "CS", value: stats.cs, points: stats.cs * SCORING_FORMULAS.cs.value },
-            { label: "Vision Score", value: stats.visionScore, points: stats.visionScore * SCORING_FORMULAS.visionScore.value },
-            { label: "Team Win", value: stats.teamWin ? "Yes" : "No", points: stats.teamWin ? SCORING_FORMULAS.teamWin.value : 0 }
+            { label: "Visión", value: stats.visionScore, points: stats.visionScore * SCORING_FORMULAS.visionScore.value },
+            { label: "Equipo ganador", value: stats.teamWin ? "Si" : "No", points: stats.teamWin ? SCORING_FORMULAS.teamWin.value : 0 }
         ];
 
         // Calculate total points
@@ -138,7 +138,7 @@ const PlayerStatsCard = ({ player }) => {
                     <>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, mb: 1 }}>
                             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
-                                Match Statistics
+                                Estadísticas del partido
                             </Typography>
                             <IconButton
                                 onClick={handleExpandClick}
@@ -193,7 +193,7 @@ const PlayerStatsCard = ({ player }) => {
                                         }}>
                                             <TableCell colSpan={2}>
                                                 <Typography variant="body2" fontWeight="bold">
-                                                    Total Points
+                                                    Puntos totales
                                                 </Typography>
                                             </TableCell>
                                             <TableCell align="right" sx={{ color: '#1976d2' }}>

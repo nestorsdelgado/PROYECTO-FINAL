@@ -90,52 +90,50 @@ const LeaderboardPage = () => {
     // Function to fetch upcoming LEC matches
     const fetchUpcomingMatches = async () => {
         try {
-            // First try to get real matches data from the API
             let matchesData = [];
 
+            // Intentar obtener equipos de la API
             try {
-                // Using teams service to get real team data
                 const response = await teamsService.getTeams();
-                console.log("Teams response:", response); // Debug log to see structure
+                console.log("Teams API response:", response);
 
+                // Procesar datos de equipos según la estructura de respuesta
                 let teams = [];
                 if (response && response.data) {
-                    // Handle different response structures
                     teams = Array.isArray(response.data) ? response.data :
                         (response.data.teams ? response.data.teams : []);
                 }
 
-                // Filter for LEC teams
+                // Filtrar equipos de la LEC usando la estructura que proporcionaste
                 const lecTeams = teams.filter(team =>
                     team.homeLeague && team.homeLeague.name === "LEC"
                 );
 
-                // Create sample matches from team data
+                console.log("LEC Teams count:", lecTeams.length);
+
+                // Crear partidos de muestra usando los equipos de la API
                 if (lecTeams.length > 1) {
                     for (let i = 0; i < Math.min(5, Math.floor(lecTeams.length / 2)); i++) {
                         const team1 = lecTeams[i * 2];
                         const team2 = lecTeams[i * 2 + 1];
 
                         if (team1 && team2) {
-                            // Ensure we have the right image URLs
-                            const team1Logo = team1.image || team1.logo ||
-                                teamsService.getLogoUrl(team1.code);
-                            const team2Logo = team2.image || team2.logo ||
-                                teamsService.getLogoUrl(team2.code);
-
+                            // Usar directamente la propiedad 'image' de cada equipo
                             matchesData.push({
                                 id: `m${i + 1}`,
                                 team1: {
+                                    id: team1.id,
                                     code: team1.code,
                                     name: team1.name,
-                                    logo: team1Logo
+                                    logo: team1.image // Usar directamente la propiedad 'image'
                                 },
                                 team2: {
+                                    id: team2.id,
                                     code: team2.code,
                                     name: team2.name,
-                                    logo: team2Logo
+                                    logo: team2.image // Usar directamente la propiedad 'image'
                                 },
-                                date: new Date(Date.now() + (i * 3600000)).toISOString(), // 1 hour apart
+                                date: new Date(Date.now() + (i * 3600000)).toISOString(),
                                 matchNumber: i + 1,
                                 state: 'unstarted'
                             });
@@ -144,103 +142,22 @@ const LeaderboardPage = () => {
                 }
             } catch (apiError) {
                 console.error("Error fetching teams from API:", apiError);
-                // Continue with fallback data
+                // Continuaremos con datos de respaldo si la API falla
             }
 
-            // If we couldn't get real data, use fallback data
+            // Si no pudimos obtener datos de la API, usar datos de respaldo
             if (matchesData.length === 0) {
-                const cdnBase = 'https://am-a.akamaihd.net/image?f=https://lolstatic-a.akamaihd.net/esports-assets/production/team';
-                matchesData = [
-                    {
-                        id: 'm1',
-                        team1: {
-                            code: 'G2',
-                            name: 'G2 Esports',
-                            logo: `${cdnBase}/g2-esports-8kcovfb3.png`
-                        },
-                        team2: {
-                            code: 'FNC',
-                            name: 'Fnatic',
-                            logo: `${cdnBase}/fnatic-mi19dkhm.png`
-                        },
-                        date: '2025-03-15T16:00:00Z',
-                        matchNumber: 1,
-                        state: 'unstarted'
-                    },
-                    {
-                        id: 'm2',
-                        team1: {
-                            code: 'MAD',
-                            name: 'MAD Lions',
-                            logo: `${cdnBase}/mad-lions-h5xuvs0y.png`
-                        },
-                        team2: {
-                            code: 'KC',
-                            name: 'Karmine Corp',
-                            logo: `${cdnBase}/karmine-corp-61i393gx.png`
-                        },
-                        date: '2025-03-15T17:00:00Z',
-                        matchNumber: 2,
-                        state: 'unstarted'
-                    },
-                    {
-                        id: 'm3',
-                        team1: {
-                            code: 'KOI',
-                            name: 'KOI',
-                            logo: `${cdnBase}/koi-dcr1iqxs.png`
-                        },
-                        team2: {
-                            code: 'AST',
-                            name: 'Astralis',
-                            logo: `${cdnBase}/astralis-1jr2u49y.png`
-                        },
-                        date: '2025-03-15T18:00:00Z',
-                        matchNumber: 3,
-                        state: 'unstarted'
-                    },
-                    {
-                        id: 'm4',
-                        team1: {
-                            code: 'XL',
-                            name: 'Excel',
-                            logo: `${cdnBase}/excel-esports-8shtlgy6.png`
-                        },
-                        team2: {
-                            code: 'SK',
-                            name: 'SK Gaming',
-                            logo: `${cdnBase}/sk-gaming-7mm0s8eq.png`
-                        },
-                        date: '2025-03-15T19:00:00Z',
-                        matchNumber: 4,
-                        state: 'unstarted'
-                    },
-                    {
-                        id: 'm5',
-                        team1: {
-                            code: 'TH',
-                            name: 'Team Heretics',
-                            logo: `${cdnBase}/team-heretics-9jwx0hey.png`
-                        },
-                        team2: {
-                            code: 'VIT',
-                            name: 'Team Vitality',
-                            logo: `${cdnBase}/team-vitality-4m9utcol.png`
-                        },
-                        date: '2025-03-15T20:00:00Z',
-                        matchNumber: 5,
-                        state: 'unstarted'
-                    }
-                ];
+                console.log("Using fallback match data");
+
             }
 
-            // For matchday 2 and beyond, change the states of some matches
+            // Para matchday 2 y posteriores, cambiar los estados de algunos partidos
             if (selectedMatchday > 1) {
-                // Make some matches already played
+                // Hacer que algunos partidos ya se hayan jugado
                 for (let i = 0; i < Math.min(selectedMatchday - 1, 3); i++) {
                     if (matchesData[i]) {
                         matchesData[i].state = 'completed';
-                        // Add scores
+                        // Añadir puntuaciones
                         matchesData[i].team1Score = Math.floor(Math.random() * 2);
                         matchesData[i].team2Score = matchesData[i].team1Score === 0 ? 1 : 0;
                     }
@@ -581,9 +498,6 @@ const LeaderboardPage = () => {
     return (
         <div className="leaderboard-container">
             <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Typography variant="h4" component="h1" sx={{ textAlign: 'center' }}>
-                    Leaderboard - {selectedLeague.Nombre}
-                </Typography>
                 <ScoringExplainer />
             </Box>
 
@@ -604,7 +518,7 @@ const LeaderboardPage = () => {
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                                <CalendarToday sx={{ mr: 1 }} /> Next Matchday: Week {selectedMatchday}
+                                <CalendarToday sx={{ mr: 1 }} /> Siguiente Matchday: Semana {selectedMatchday}
                             </Typography>
                             <Box>
                                 {matchdays.map((day) => (
@@ -616,7 +530,7 @@ const LeaderboardPage = () => {
                                         onClick={() => handleMatchdayChange(day)}
                                         sx={{ mx: 0.5 }}
                                     >
-                                        Week {day}
+                                        Semana {day}
                                     </Button>
                                 ))}
                             </Box>
@@ -641,20 +555,27 @@ const LeaderboardPage = () => {
                                         }
                                     }}>
                                         <Typography variant="caption" sx={{ textAlign: 'center', mb: 1 }}>
-                                            Match {match.matchNumber} • {formatMatchDate(match.date)}
+                                            Partido {match.matchNumber} • {formatMatchDate(match.date)}
                                         </Typography>
 
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1' }}>
                                                 <Avatar
-                                                    src={match.team1.logo}
+                                                    src={match.team1.logo} // Usar directamente el logo proporcionado por la API
                                                     alt={match.team1.name}
-                                                    sx={{ width: 50, height: 50, mb: 1 }}
+                                                    sx={{
+                                                        width: 50,
+                                                        height: 50,
+                                                        mb: 1,
+                                                        bgcolor: 'transparent',
+                                                        padding: '2px'
+                                                    }}
                                                     imgProps={{
                                                         onError: (e) => {
-                                                            console.log(`Error loading image for ${match.team1.code}:`, e);
-                                                            // Fallback to a default image
-                                                            e.target.src = "/assets/images/teams/default-logo.png";
+                                                            console.log(`Error loading image for ${match.team1.code}`);
+                                                            // Si hay algún error al cargar la imagen, intentar buscar de nuevo en el servicio
+                                                            e.target.src = "https://www.leagueoflegends.com/static/favicon-0cf29ce019f7cd1e7b24f85ab6ff97da.ico";
+                                                            e.target.onerror = null; // Prevenir bucle infinito
                                                         }
                                                     }}
                                                 />
@@ -695,14 +616,21 @@ const LeaderboardPage = () => {
 
                                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1' }}>
                                                 <Avatar
-                                                    src={match.team2.logo}
+                                                    src={match.team2.logo} // Usar directamente el logo proporcionado por la API
                                                     alt={match.team2.name}
-                                                    sx={{ width: 50, height: 50, mb: 1 }}
+                                                    sx={{
+                                                        width: 50,
+                                                        height: 50,
+                                                        mb: 1,
+                                                        bgcolor: 'transparent',
+                                                        padding: '2px'
+                                                    }}
                                                     imgProps={{
                                                         onError: (e) => {
-                                                            console.log(`Error loading image for ${match.team2.code}:`, e);
-                                                            // Fallback to a default image
-                                                            e.target.src = "/assets/images/teams/default-logo.png";
+                                                            console.log(`Error loading image for ${match.team2.code}`);
+                                                            // Si hay algún error al cargar la imagen, intentar buscar de nuevo en el servicio
+                                                            e.target.src = "https://www.leagueoflegends.com/static/favicon-0cf29ce019f7cd1e7b24f85ab6ff97da.ico";
+                                                            e.target.onerror = null; // Prevenir bucle infinito
                                                         }
                                                     }}
                                                 />
@@ -732,12 +660,12 @@ const LeaderboardPage = () => {
                         >
                             <Tab
                                 icon={<Person />}
-                                label="My Team"
+                                label="Mi equipo"
                                 iconPosition="start"
                             />
                             <Tab
                                 icon={<EmojiEvents />}
-                                label="League Standings"
+                                label="Clasificación en liga"
                                 iconPosition="start"
                             />
                         </Tabs>
@@ -746,9 +674,9 @@ const LeaderboardPage = () => {
                     {/* Content for My Team tab */}
                     {activeTab === 0 && (
                         <Box className="my-team-points" sx={{ mb: 4 }}>
-                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', color: 'black' }}>
                                 <Star sx={{ mr: 1, color: '#FFD700' }} />
-                                My Team Weekly Points: <span style={{ fontWeight: 'bold', marginLeft: '8px' }}>
+                                Puntos de la semana: <span style={{ fontWeight: 'bold', marginLeft: '8px', color: 'black' }}>
                                     {userLineup.reduce((sum, player) => sum + player.weekPoints, 0)} pts
                                 </span>
                             </Typography>
@@ -767,8 +695,8 @@ const LeaderboardPage = () => {
                     {activeTab === 1 && (
                         <Box className="league-standings">
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <EmojiEvents sx={{ mr: 1, color: '#FFD700' }} /> League Standings
+                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', color: 'black' }}>
+                                    <EmojiEvents sx={{ mr: 1, color: '#FFD700' }} /> Clasificación de liga
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                     <Tooltip title="Weekly view shows rankings based on this week's performance only. Season view shows cumulative points from all weeks.">
@@ -784,7 +712,7 @@ const LeaderboardPage = () => {
                                             fetchLeagueStandings(); // Refresh standings with weekly view
                                         }}
                                     >
-                                        Week {selectedMatchday}
+                                        Semana {selectedMatchday}
                                     </Button>
                                     <Button
                                         variant={activeStandingsView ? "contained" : "outlined"}
@@ -795,7 +723,7 @@ const LeaderboardPage = () => {
                                             fetchLeagueStandings(); // Refresh standings with season view
                                         }}
                                     >
-                                        Season
+                                        Temporada
                                     </Button>
                                 </Box>
                             </Box>
@@ -804,16 +732,16 @@ const LeaderboardPage = () => {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Rank</TableCell>
-                                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Username</TableCell>
+                                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Ranking</TableCell>
+                                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Usuario</TableCell>
                                             <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>
-                                                Week Points
+                                                Puntos semanales
                                             </TableCell>
                                             <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>
-                                                Total Points
+                                                Puntos totales
                                             </TableCell>
                                             <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>
-                                                Streak
+                                                Racha
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -870,7 +798,7 @@ const LeaderboardPage = () => {
                                                         />
                                                     ) : (
                                                         <Chip
-                                                            label="No streak"
+                                                            label="Sin racha"
                                                             size="small"
                                                             color="default"
                                                             sx={{ opacity: 0.6 }}

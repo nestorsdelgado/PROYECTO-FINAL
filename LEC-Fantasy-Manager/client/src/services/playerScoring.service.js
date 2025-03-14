@@ -4,11 +4,12 @@ class playerScoringService {
     // Get player scores for a specific matchday
     async getPlayerScores(leagueId, matchday = 1) {
         try {
-            const response = await api.get(`/api/scores/matchday/${matchday}/league/${leagueId}`);
-            return response.data;
+            // No intentaremos usar el endpoint real ya que está fallando
+            console.log("Usando datos de puntuación simulados");
+            return this.getMockPlayerScores(matchday);
         } catch (error) {
             console.error("Error fetching player scores:", error);
-            // For development/demo, return mock data if API fails
+            // Para desarrollo/demo, retornar datos simulados
             return this.getMockPlayerScores(matchday);
         }
     }
@@ -16,15 +17,12 @@ class playerScoringService {
     // Get league standings (user rankings based on points)
     async getLeagueStandings(leagueId, matchday = null) {
         try {
-            const endpoint = matchday
-                ? `/api/standings/league/${leagueId}/matchday/${matchday}`
-                : `/api/standings/league/${leagueId}`;
-
-            const response = await api.get(endpoint);
-            return response.data;
+            // No intentaremos usar el endpoint real ya que está fallando
+            console.log("Usando datos de clasificación simulados");
+            return this.getMockLeagueStandings(matchday);
         } catch (error) {
             console.error("Error fetching league standings:", error);
-            // For development/demo, return mock data if API fails
+            // Para desarrollo/demo, retornar datos simulados
             return this.getMockLeagueStandings(matchday);
         }
     }
@@ -32,11 +30,12 @@ class playerScoringService {
     // Get upcoming matches for a specific matchday
     async getUpcomingMatches(matchday = 1) {
         try {
-            const response = await api.get(`/api/matches/upcoming/matchday/${matchday}`);
-            return response.data;
+            // No intentaremos usar el endpoint real ya que está fallando
+            console.log("Usando datos de partidos simulados");
+            return this.getMockUpcomingMatches(matchday);
         } catch (error) {
             console.error("Error fetching upcoming matches:", error);
-            // For development/demo, return mock data if API fails
+            // Para desarrollo/demo, retornar datos simulados
             return this.getMockUpcomingMatches(matchday);
         }
     }
@@ -44,25 +43,20 @@ class playerScoringService {
     // Get current user's lineup with scores
     async getUserLineupWithScores(leagueId, matchday = 1) {
         try {
-            const response = await api.get(`/api/lineup/scores/${leagueId}/matchday/${matchday}`);
-            return response.data;
+            // No intentaremos usar el endpoint real ya que está fallando
+            console.log("Usando datos de alineación simulados");
+            return this.getMockUserLineupWithScores(matchday);
         } catch (error) {
             console.error("Error fetching user lineup with scores:", error);
-            // For development/demo, return mock data if API fails
+            // Para desarrollo/demo, retornar datos simulados
             return this.getMockUserLineupWithScores(matchday);
         }
     }
 
     // Helper to get a list of available matchdays
     async getAvailableMatchdays() {
-        try {
-            const response = await api.get('/api/matchdays');
-            return response.data;
-        } catch (error) {
-            console.error("Error fetching available matchdays:", error);
-            // For development/demo, return mock data
-            return [1, 2, 3, 4, 5, 6, 7, 8, 9];
-        }
+        // Siempre retornar datos simulados sin intentar la API
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9];
     }
 
     // Mock data generators for development and demos
@@ -192,40 +186,40 @@ class playerScoringService {
         const baseMatches = [
             {
                 id: 'm1',
-                team1: { code: 'G2', name: 'G2 Esports', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2FG2-FullonDark.png' },
-                team2: { code: 'FNC', name: 'Fnatic', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2F1631819669150_fnc-2021-worlds.png' },
+                team1: { code: 'G2', name: 'G2 Esports' },
+                team2: { code: 'FNC', name: 'Fnatic' },
                 date: '2025-03-15T16:00:00Z',
                 matchNumber: 1,
                 state: 'unstarted'
             },
             {
                 id: 'm2',
-                team1: { code: 'MAD', name: 'MAD Lions', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2FMad-Lion-Logo-RGB_On-Dark-Background.png' },
-                team2: { code: 'KC', name: 'Karmine Corp', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2F1673266878684_KC_2023_Square-darkbg.png' },
+                team1: { code: 'MAD', name: 'MAD Lions' },
+                team2: { code: 'KC', name: 'Karmine Corp' },
                 date: '2025-03-15T17:00:00Z',
                 matchNumber: 2,
                 state: 'unstarted'
             },
             {
                 id: 'm3',
-                team1: { code: 'RGE', name: 'Rogue', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2FKOIEsportsLogo.png' },
-                team2: { code: 'AST', name: 'Astralis', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2FAST-FullColor-2021.png' },
+                team1: { code: 'RGE', name: 'Rogue' },
+                team2: { code: 'AST', name: 'Astralis' },
                 date: '2025-03-15T18:00:00Z',
                 matchNumber: 3,
                 state: 'unstarted'
             },
             {
                 id: 'm4',
-                team1: { code: 'XL', name: 'Excel', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2F1592591623128_ExcelEsportsXL2.png' },
-                team2: { code: 'SK', name: 'SK Gaming', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2F1631819660270_skp-2021-worlds.png' },
+                team1: { code: 'XL', name: 'Excel' },
+                team2: { code: 'SK', name: 'SK Gaming' },
                 date: '2025-03-15T19:00:00Z',
                 matchNumber: 4,
                 state: 'unstarted'
             },
             {
                 id: 'm5',
-                team1: { code: 'TH', name: 'Team Heretics', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2F1671466895881_heretics-logo.png' },
-                team2: { code: 'VIT', name: 'Team Vitality', logo: 'https://am-a.akamaihd.net/image?resize=70:&f=http%3A%2F%2Fstatic.lolesports.com%2Fteams%2FVitality-logo-color-outline.png' },
+                team1: { code: 'TH', name: 'Team Heretics' },
+                team2: { code: 'VIT', name: 'Team Vitality' },
                 date: '2025-03-15T20:00:00Z',
                 matchNumber: 5,
                 state: 'unstarted'
@@ -235,7 +229,7 @@ class playerScoringService {
         // For matchday 2 and beyond, change the states of some matches
         if (matchday > 1) {
             // Make some matches already played
-            for (let i = 0; i < matchday - 1; i++) {
+            for (let i = 0; i < Math.min(matchday - 1, 3); i++) {
                 if (baseMatches[i]) {
                     baseMatches[i].state = 'completed';
                     // Add scores

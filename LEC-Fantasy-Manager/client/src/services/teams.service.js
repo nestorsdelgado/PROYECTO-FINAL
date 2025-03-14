@@ -1,211 +1,174 @@
 import axios from 'axios';
 
-/**
- * Service for handling team-related API calls
- */
 class TeamsService {
     constructor() {
-        // Base URL for API calls - adjust as needed for your environment
-        this.baseUrl = process.env.REACT_APP_API_URL || '/api';
-        // CDN base for LoL esports assets
-        this.cdnBase = 'https://am-a.akamaihd.net/image?f=https://lolstatic-a.akamaihd.net/esports-assets/production/team';
+        // Base URL for API calls - Asegúrate de que esta URL coincida con la de tu backend
+        this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5005/api';
+
+        // Cache para almacenar equipos obtenidos de la API
+        this.teamsCache = null;
     }
 
     /**
-     * Get all teams
+     * Get all teams from the API
      * @returns {Promise<Object>} Promise resolving to teams data response
      */
     async getTeams() {
         try {
+            // Si ya tenemos los equipos en cache, los devolvemos directamente
+            if (this.teamsCache) {
+                return { data: this.teamsCache };
+            }
+
+            // Obtener equipos de la API
             const response = await axios.get(`${this.baseUrl}/teams`);
 
-            // Add image fallbacks for each team
-            if (response.data && Array.isArray(response.data)) {
-                response.data = response.data.map(team => ({
-                    ...team,
-                    image: team.image || team.logo || this.getLogoUrl(team.code),
-                    logo: team.logo || team.image || this.getLogoUrl(team.code)
-                }));
-            } else if (response.data && response.data.teams && Array.isArray(response.data.teams)) {
-                response.data.teams = response.data.teams.map(team => ({
-                    ...team,
-                    image: team.image || team.logo || this.getLogoUrl(team.code),
-                    logo: team.logo || team.image || this.getLogoUrl(team.code)
-                }));
+            // Guardar en cache para futuras solicitudes
+            if (response.data && (Array.isArray(response.data) || response.data.teams)) {
+                this.teamsCache = Array.isArray(response.data) ? response.data : response.data.teams;
             }
 
             return response;
         } catch (error) {
-            console.error('Error fetching teams:', error);
-
-            // Create fallback teams with proper image URLs
-            const fallbackTeams = {
-                data: [
-                    {
-                        id: 'g2',
-                        code: 'G2',
-                        name: 'G2 Esports',
-                        logo: `${this.cdnBase}/g2-esports-8kcovfb3.png`,
-                        image: `${this.cdnBase}/g2-esports-8kcovfb3.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'fnc',
-                        code: 'FNC',
-                        name: 'Fnatic',
-                        logo: `${this.cdnBase}/fnatic-mi19dkhm.png`,
-                        image: `${this.cdnBase}/fnatic-mi19dkhm.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'mad',
-                        code: 'MAD',
-                        name: 'MAD Lions',
-                        logo: `${this.cdnBase}/mad-lions-h5xuvs0y.png`,
-                        image: `${this.cdnBase}/mad-lions-h5xuvs0y.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'kc',
-                        code: 'KC',
-                        name: 'Karmine Corp',
-                        logo: `${this.cdnBase}/karmine-corp-61i393gx.png`,
-                        image: `${this.cdnBase}/karmine-corp-61i393gx.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'koi',
-                        code: 'KOI',
-                        name: 'KOI',
-                        logo: `${this.cdnBase}/koi-dcr1iqxs.png`,
-                        image: `${this.cdnBase}/koi-dcr1iqxs.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'ast',
-                        code: 'AST',
-                        name: 'Astralis',
-                        logo: `${this.cdnBase}/astralis-1jr2u49y.png`,
-                        image: `${this.cdnBase}/astralis-1jr2u49y.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'xl',
-                        code: 'XL',
-                        name: 'Excel Esports',
-                        logo: `${this.cdnBase}/excel-esports-8shtlgy6.png`,
-                        image: `${this.cdnBase}/excel-esports-8shtlgy6.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'sk',
-                        code: 'SK',
-                        name: 'SK Gaming',
-                        logo: `${this.cdnBase}/sk-gaming-7mm0s8eq.png`,
-                        image: `${this.cdnBase}/sk-gaming-7mm0s8eq.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'th',
-                        code: 'TH',
-                        name: 'Team Heretics',
-                        logo: `${this.cdnBase}/team-heretics-9jwx0hey.png`,
-                        image: `${this.cdnBase}/team-heretics-9jwx0hey.png`,
-                        homeLeague: { name: 'LEC' }
-                    },
-                    {
-                        id: 'vit',
-                        code: 'VIT',
-                        name: 'Team Vitality',
-                        logo: `${this.cdnBase}/team-vitality-4m9utcol.png`,
-                        image: `${this.cdnBase}/team-vitality-4m9utcol.png`,
-                        homeLeague: { name: 'LEC' }
-                    }
-                ]
-            };
-
-            return fallbackTeams;
+            console.error('Error fetching teams from API:', error);
+            throw error;
         }
     }
 
     /**
-     * Get a specific team by ID
+     * Get a specific team by ID from the API
      * @param {string} teamId - Team ID
      * @returns {Promise<Object>} Promise resolving to team data
      */
     async getTeamById(teamId) {
         try {
-            const response = await axios.get(`${this.baseUrl}/teams/${teamId}`);
-            const team = response.data;
+            // Primero intentamos obtener el equipo de la cache
+            if (this.teamsCache) {
+                const cachedTeam = this.teamsCache.find(t =>
+                    t.id === teamId ||
+                    t.code === teamId ||
+                    t.slug === teamId
+                );
 
-            // Ensure the team has an image URL
-            if (team) {
-                team.image = team.image || team.logo || this.getLogoUrl(team.code);
-                team.logo = team.logo || team.image || this.getLogoUrl(team.code);
+                if (cachedTeam) {
+                    return cachedTeam;
+                }
             }
 
-            return team;
+            // Si no está en cache, hacemos la petición a la API
+            const response = await axios.get(`${this.baseUrl}/teams/${teamId}`);
+            return response.data;
         } catch (error) {
-            console.error(`Error fetching team with ID ${teamId}:`, error);
+            console.error(`Error fetching team with ID ${teamId} from API:`, error);
 
-            // Try to find the team in our fallback data
-            const allTeamsResponse = await this.getTeams();
-            const teams = allTeamsResponse.data;
-            const team = teams.find(t =>
-                t.id === teamId ||
-                t.code?.toLowerCase() === teamId.toLowerCase()
+            // Intentar encontrar el equipo en la cache como último recurso
+            if (this.teamsCache) {
+                const teamByCode = this.teamsCache.find(t =>
+                    t.code && t.code.toLowerCase() === teamId.toLowerCase()
+                );
+
+                if (teamByCode) {
+                    return teamByCode;
+                }
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * Get team logo URL directly from team code by querying the API
+     * @param {string} teamCode - Team code (e.g., 'G2', 'FNC')
+     * @returns {Promise<string>} Promise resolving to logo URL
+     */
+    async getTeamLogoUrl(teamCode) {
+        try {
+            if (!teamCode) return null;
+
+            // Normalizar el código del equipo
+            const code = String(teamCode).toUpperCase();
+
+            // Buscar el equipo en la cache primero
+            if (this.teamsCache) {
+                const team = this.teamsCache.find(t =>
+                    t.code && t.code.toUpperCase() === code
+                );
+
+                if (team && team.image) {
+                    return team.image;
+                }
+            }
+
+            // Si no está en cache, intentar obtener todos los equipos
+            const teams = await this.getTeams();
+            const teamsData = Array.isArray(teams.data) ? teams.data :
+                (teams.data.teams || []);
+
+            const team = teamsData.find(t =>
+                t.code && t.code.toUpperCase() === code
             );
 
-            if (team) {
-                return team;
+            // Devolver la imagen del equipo si existe
+            if (team && team.image) {
+                return team.image;
             }
 
-            throw new Error(`Team with ID ${teamId} not found`);
+            // Si no se encuentra el equipo o la imagen, devolver null
+            return null;
+        } catch (error) {
+            console.error(`Error getting logo URL for team ${teamCode}:`, error);
+            return null;
         }
     }
 
     /**
-     * Get a standardized logo URL for a team based on team code
-     * @param {string} teamCode - Team code (e.g., 'G2', 'FNC')
-     * @returns {string} Logo URL
+     * @param {string|Object} teamInfo - Team code or team object
+     * @returns {string|null} Logo URL if available in cache, null otherwise
      */
-    getLogoUrl(teamCode) {
-        if (!teamCode) return '/assets/images/teams/default-logo.png';
+    getLogoUrl(teamInfo) {
+        // Si ya tenemos el objeto completo del equipo, usar su propiedad de imagen
+        if (teamInfo && typeof teamInfo === 'object') {
+            if (teamInfo.image) return teamInfo.image;
+            if (teamInfo.alternativeImage) return teamInfo.alternativeImage;
+            if (teamInfo.backgroundImage) return teamInfo.backgroundImage;
 
-        // Map of specific team codes to their image identifiers
-        const teamImageMap = {
-            'G2': 'g2-esports-8kcovfb3.png',
-            'FNC': 'fnatic-mi19dkhm.png',
-            'MAD': 'mad-lions-h5xuvs0y.png',
-            'KC': 'karmine-corp-61i393gx.png',
-            'KOI': 'koi-dcr1iqxs.png',
-            'AST': 'astralis-1jr2u49y.png',
-            'XL': 'excel-esports-8shtlgy6.png',
-            'SK': 'sk-gaming-7mm0s8eq.png',
-            'TH': 'team-heretics-9jwx0hey.png',
-            'VIT': 'team-vitality-4m9utcol.png'
-        };
-
-        const code = teamCode.toUpperCase();
-        if (teamImageMap[code]) {
-            return `${this.cdnBase}/${teamImageMap[code]}`;
+            // Si el objeto tiene código pero no imagen, intentar buscar por código
+            teamInfo = teamInfo.code || null;
         }
 
-        // Fallback to generic format
-        return `${this.cdnBase}/${teamCode.toLowerCase()}.png`;
+        // Si no tenemos un código o la cache no está inicializada, no podemos hacer nada
+        if (!teamInfo || !this.teamsCache) {
+            return null;
+        }
+
+        // Intentar encontrar el equipo por código en la cache
+        const code = String(teamInfo).toUpperCase();
+        const team = this.teamsCache.find(t =>
+            t.code && t.code.toUpperCase() === code
+        );
+
+        if (team) {
+            // Priorizar image, pero caer en alternativas si existe
+            return team.image || team.alternativeImage || team.backgroundImage || null;
+        }
+
+        // No se encontró el equipo en la cache
+        return null;
     }
 
     /**
-     * Get teams by league
+     * Get teams by league name
      * @param {string} leagueName - League name (e.g., 'LEC')
      * @returns {Promise<Array>} Promise resolving to teams array
      */
     async getTeamsByLeague(leagueName) {
         try {
+            // Asegurarse de que tenemos los equipos
             const response = await this.getTeams();
             const teams = Array.isArray(response.data) ? response.data :
-                (response.data.teams ? response.data.teams : []);
+                (response.data.teams || []);
 
+            // Filtrar por nombre de liga
             return teams.filter(team =>
                 team.homeLeague &&
                 team.homeLeague.name?.toUpperCase() === leagueName.toUpperCase()
@@ -214,6 +177,10 @@ class TeamsService {
             console.error(`Error fetching teams for league ${leagueName}:`, error);
             throw error;
         }
+    }
+
+    clearCache() {
+        this.teamsCache = null;
     }
 }
 

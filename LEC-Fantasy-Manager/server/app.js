@@ -24,6 +24,15 @@ mongoose
 // ℹ️ This function is getting exported from the config folder. It runs most pieces of middleware
 require("./config")(app);
 
+const FRONTEND_URL = process.env.ORIGIN || "https://lecfantasy.netlify.app";
+
+app.use(
+    cors({
+        origin: [FRONTEND_URL],
+        credentials: true
+    })
+);
+
 
 app.use(express.json());
 app.use(cors()); // Enable CORS to allow frontend access
